@@ -594,7 +594,20 @@ tr.table-total td {
 }
 .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
 .modal-header h2 { font-size: 1.1rem; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+.modal-actions { display: flex; justify-content: stretch; gap: 10px; margin-top: 8px; }
+.modal-actions .btn { width: 100%; }
+
+.modal .form-row-valor-data {
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.modal .form-row-valor-data .form-group {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 14px;
+}
 
 .tipo-toggle { display: flex; gap: 8px; margin-bottom: 18px; }
 .tipo-toggle label { cursor: pointer; flex: 1; }
@@ -939,29 +952,20 @@ tr.table-total td {
     max-height: 88dvh;
   }
 
-  .modal .form-row {
+  .modal .form-row:not(.form-row-valor-data) {
     flex-direction: column;
     align-items: stretch;
     gap: 0;
     width: 100%;
   }
 
-  .modal .form-row .form-group {
+  .modal .form-row:not(.form-row-valor-data) .form-group {
     width: 100%;
     margin-bottom: 14px;
   }
 
   .modal .form-row select,
   .modal .form-row input {
-    width: 100%;
-  }
-
-  .modal-actions {
-    flex-direction: column-reverse;
-    gap: 8px;
-  }
-
-  .modal-actions .btn {
     width: 100%;
   }
 }

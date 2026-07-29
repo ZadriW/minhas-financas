@@ -1516,7 +1516,6 @@ function configurarEventos() {
 
   // Modal
   document.getElementById("modal-fechar").addEventListener("click", fecharModal);
-  document.getElementById("modal-cancelar").addEventListener("click", fecharModal);
   document.getElementById("modal-transacao").addEventListener("click", (e) => {
     if (e.target.id === "modal-transacao") fecharModal();
   });
