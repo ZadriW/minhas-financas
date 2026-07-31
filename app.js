@@ -148,6 +148,16 @@ function mesFechado(mesISO) {
   return Array.isArray(dados.config.mesesFechados) && dados.config.mesesFechados.includes(mesISO);
 }
 
+/** Limite superior para navegação com › (considera meses já fechados). */
+function mesLimiteAvanco() {
+  const mesHoje = mesDe(hojeISO());
+  const fechados = dados.config.mesesFechados;
+  if (!Array.isArray(fechados) || fechados.length === 0) return mesHoje;
+  const ultimoFechado = fechados[fechados.length - 1];
+  const mesAposUltimoFechado = proximoMes(ultimoFechado);
+  return mesAposUltimoFechado > mesHoje ? mesAposUltimoFechado : mesHoje;
+}
+
 function toast(msg) {
   const el = document.getElementById("toast");
   el.textContent = msg;
@@ -1083,6 +1093,7 @@ function renderResumoSidebar() {
 
 function atualizarControlesMes() {
   const mesHoje = mesDe(hojeISO());
+  const limiteAvanco = mesLimiteAvanco();
   const fechado = mesFechado(mesSelecionado);
   const ehMesAtual = mesSelecionado === mesHoje;
 
@@ -1091,9 +1102,12 @@ function atualizarControlesMes() {
   dot.classList.toggle("is-passado", !ehMesAtual);
 
   const btnProximo = document.getElementById("mes-proximo");
-  btnProximo.disabled = mesSelecionado >= mesHoje;
-  btnProximo.title = mesSelecionado >= mesHoje
-    ? "Não é possível avançar além do mês atual"
+  const noLimite = mesSelecionado >= limiteAvanco;
+  btnProximo.disabled = noLimite;
+  btnProximo.title = noLimite
+    ? limiteAvanco > mesHoje
+      ? "Feche este mês para avançar além de " + nomeMes(limiteAvanco)
+      : "Não é possível avançar além do mês atual"
     : "Próximo mês";
 
   const btnHoje = document.getElementById("mes-hoje");
@@ -1496,8 +1510,7 @@ function configurarEventos() {
     renderizar();
   });
   document.getElementById("mes-proximo").addEventListener("click", () => {
-    const mesHoje = mesDe(hojeISO());
-    if (mesSelecionado >= mesHoje) return;
+    if (mesSelecionado >= mesLimiteAvanco()) return;
     mesSelecionado = proximoMes(mesSelecionado);
     renderizar();
   });
