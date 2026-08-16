@@ -58,7 +58,7 @@ function carregar() {
       mesInicioSalario: null, // "YYYY-MM" do mês em que o salário foi configurado
       mesesFechados: [], // meses encerrados manualmente pelo usuário ("YYYY-MM")
       categorias: [...CATEGORIAS_PADRAO],
-      geminiApiKey: "AQ.Ab8RN6IIA-38KhfuzHq7LozoCCT_QtXUdSqzzWeb990TVyA0FQ", 
+      geminiApiKey: "AQ.Ab8RN6LSgDGp8cKJrFl6XWV9eVrJXHuR_vCtZhOblRItHiFKcA", 
     },
   };
 }
@@ -1219,13 +1219,70 @@ function promptTransacaoIA(texto) {
   ].join("\n");
 }
 
-/** Chama a API do Gemini e retorna a transação interpretada (ou lança erro com mensagem amigável). */
+/**
+ * Interpreta o texto do usuário e retorna a transação sugerida.
+ * Caminho padrão: endpoint /api/ia (chave compartilhada, guardada no servidor).
+ * Fallback: chave pessoal configurada pelo usuário (chamada direta ao Gemini),
+ * útil para rodar localmente via file:// ou localhost sem backend.
+ */
 async function interpretarTransacaoIA(texto) {
-  const chave = (dados.config.geminiApiKey || "").trim();
-  if (!chave) {
-    throw new Error("Configure sua chave da API do Gemini em Configurações.");
+  const chavePessoal = (dados.config.geminiApiKey || "").trim();
+  const eLocal = location.protocol === "file:" || location.hostname === "localhost" || location.hostname === "127.0.0.1";
+
+  // Ambiente local sem backend: precisa de chave pessoal
+  if (eLocal) {
+    if (!chavePessoal) {
+      throw new Error("Configure sua chave da API do Gemini em Configurações para usar a IA localmente.");
+    }
+    return interpretarViaChavePessoal(texto, chavePessoal);
   }
 
+  // Ambiente de produção: tenta endpoint compartilhado, fallback para chave pessoal
+  try {
+    return await interpretarViaEndpoint(texto);
+  } catch (e) {
+    // Se o endpoint não existe (404/405) e há chave pessoal, tenta
+    if ((e.status === 404 || e.status === 405) && chavePessoal) {
+      return interpretarViaChavePessoal(texto, chavePessoal);
+    }
+    throw e;
+  }
+}
+
+/** Chama a função serverless /api/ia, que usa a chave compartilhada do projeto. */
+async function interpretarViaEndpoint(texto) {
+  let resposta;
+  try {
+    resposta = await fetch("/api/ia", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        texto,
+        categorias: dados.config.categorias,
+        hoje: hojeISO(),
+        mesSelecionado,
+      }),
+    });
+  } catch {
+    throw new Error("Sem conexão com a API. Verifique sua internet.");
+  }
+
+  let json = null;
+  try {
+    json = await resposta.json();
+  } catch { /* resposta sem corpo JSON */ }
+
+  if (!resposta.ok) {
+    const e = new Error(json?.erro || `Erro na IA (${resposta.status}). Tente novamente.`);
+    e.status = resposta.status;
+    throw e;
+  }
+
+  return validarSugestaoIA(json);
+}
+
+/** Chamada direta ao Gemini com a chave pessoal do usuário (fluxo antigo, opcional). */
+async function interpretarViaChavePessoal(texto, chave) {
   const corpo = {
     contents: [{ parts: [{ text: promptTransacaoIA(texto) }] }],
     generationConfig: {
@@ -1267,11 +1324,14 @@ async function chamarGeminiGenerateContent(chave, corpo) {
   for (const modelo of GEMINI_MODELOS) {
     let resposta;
     try {
-      resposta = await fetch(`${GEMINI_API_BASE}/${modelo}:generateContent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": chave },
-        body: JSON.stringify(corpo),
-      });
+      resposta = await fetch(
+        `${GEMINI_API_BASE}/${modelo}:generateContent?key=${encodeURIComponent(chave)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(corpo),
+        }
+      );
     } catch {
       throw new Error("Sem conexão com a API. Verifique sua internet.");
     }
@@ -1377,10 +1437,6 @@ async function preencherComIA() {
   if (!texto) {
     statusIA("Descreva a transação primeiro, ex.: “gastei 45 no mercado ontem”.", "erro");
     input.focus();
-    return;
-  }
-  if (!(dados.config.geminiApiKey || "").trim()) {
-    statusIA("Configure sua chave da API do Gemini em Configurações › Assistente de IA.", "erro");
     return;
   }
 
