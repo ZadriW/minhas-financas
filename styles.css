@@ -30,6 +30,8 @@ body {
 
 .hidden { display: none !important; }
 .muted { color: var(--text-muted); font-size: 0.88rem; }
+.muted a { color: var(--primary); text-decoration: none; }
+.muted a:hover { text-decoration: underline; }
 .right { text-align: right; }
 .positive { color: var(--green); }
 .negative { color: var(--red); }
@@ -636,6 +638,26 @@ tr.table-total td {
   min-width: 0;
   overflow: hidden;
 }
+
+/* ---- Entrada por linguagem natural (IA) ---- */
+.ia-nl-wrap {
+  background: rgba(79, 124, 255, 0.07);
+  border: 1px solid rgba(79, 124, 255, 0.28);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 18px;
+}
+.ia-nl-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.84rem; font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+.ia-nl-row { display: flex; gap: 8px; }
+.ia-nl-row input { flex: 1; min-width: 0; }
+.ia-nl-row .btn { flex-shrink: 0; }
+.ia-nl-status { margin-top: 8px; font-size: 0.82rem; }
+.ia-nl-status-erro { color: var(--red); }
 
 .tipo-toggle { display: flex; gap: 8px; margin-bottom: 18px; }
 .tipo-toggle label { cursor: pointer; flex: 1; }

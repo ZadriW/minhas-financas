@@ -388,6 +388,21 @@
           </div>
         </div>
 
+        <div class="card narrow">
+          <div class="card-header"><h2>Assistente de IA (Gemini)</h2></div>
+          <p class="muted">
+            Com uma chave da API do Google Gemini, você pode criar transações escrevendo em linguagem natural
+            (ex.: “gastei 45 no mercado ontem no PIX”). Gere uma chave gratuita em
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.
+          </p>
+          <div class="form-group">
+            <label for="config-gemini-key">Chave da API do Gemini</label>
+            <input type="password" id="config-gemini-key" placeholder="AIza..." autocomplete="off" />
+          </div>
+          <p class="muted">A chave fica salva apenas neste navegador, junto com seus dados.</p>
+          <button class="btn btn-primary" id="btn-salvar-gemini">Salvar chave</button>
+        </div>
+
         <div class="card narrow danger-zone">
           <div class="card-header"><h2>Dados</h2></div>
           <p class="muted">Seus dados ficam salvos apenas neste navegador (localStorage). Faça backups regulares em Relatórios › Exportar JSON.</p>
@@ -406,6 +421,18 @@
       </div>
       <form id="form-transacao">
         <input type="hidden" id="tx-id" />
+        <div class="ia-nl-wrap hidden" id="ia-nl-wrap">
+          <label class="ia-nl-label" for="tx-nl-texto">
+            <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Descreva a transação
+          </label>
+          <div class="ia-nl-row">
+            <input type="text" id="tx-nl-texto" placeholder="Ex.: gastei 45 no mercado ontem no PIX" autocomplete="off" />
+            <button type="button" class="btn btn-outline" id="btn-ia-preencher" title="Preencher o formulário com IA">
+              <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+            </button>
+          </div>
+          <p class="muted ia-nl-status hidden" id="ia-nl-status">&nbsp;</p>
+        </div>
         <div class="tipo-toggle">
           <label><input type="radio" name="tx-tipo" value="ganho" /> <span class="tag tag-ganho">Ganho</span></label>
           <label><input type="radio" name="tx-tipo" value="despesa" checked /> <span class="tag tag-despesa">Despesa</span></label>

@@ -58,6 +58,7 @@ function carregar() {
       mesInicioSalario: null, // "YYYY-MM" do mês em que o salário foi configurado
       mesesFechados: [], // meses encerrados manualmente pelo usuário ("YYYY-MM")
       categorias: [...CATEGORIAS_PADRAO],
+      geminiApiKey: "AQ.Ab8RN6IIA-38KhfuzHq7LozoCCT_QtXUdSqzzWeb990TVyA0FQ", 
     },
   };
 }
@@ -1062,6 +1063,7 @@ function renderRelatorios() {
 function renderConfiguracoes() {
   document.getElementById("config-salario").value = dados.config.salario || "";
   document.getElementById("config-dia-salario").value = dados.config.diaSalario || 5;
+  document.getElementById("config-gemini-key").value = dados.config.geminiApiKey || "";
 
   const info = document.getElementById("config-salario-info");
   if (dados.config.salario > 0 && dados.config.mesInicioSalario) {
@@ -1183,6 +1185,221 @@ function renderizar() {
   else if (secaoAtiva === "configuracoes") renderConfiguracoes();
 }
 
+/* ---------- IA (Gemini): transação em linguagem natural ---------- */
+
+const GEMINI_MODELOS = [
+  "gemini-3.5-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-2.5-flash",
+];
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+
+/** Monta o prompt com o contexto necessário para interpretar o texto do usuário. */
+function promptTransacaoIA(texto) {
+  const categorias = dados.config.categorias.length ? dados.config.categorias : ["Outros"];
+  return [
+    "Você interpreta lançamentos financeiros pessoais escritos em português informal e os converte em dados estruturados.",
+    "",
+    `Data de hoje: ${hojeISO()}.`,
+    `Mês selecionado no app: ${mesSelecionado}.`,
+    `Categorias de despesa disponíveis: ${categorias.join(", ")}.`,
+    "",
+    "Regras:",
+    '- "tipo": "ganho" para dinheiro recebido, "despesa" para gastos. Na dúvida, use "despesa".',
+    '- "descricao": curta e capitalizada, sem valor nem data (ex.: "Supermercado", "Uber").',
+    '- "valor": número positivo em reais.',
+    '- "data": formato YYYY-MM-DD. Resolva termos relativos ("hoje", "ontem", "sexta passada") usando a data de hoje.',
+    "  Se o texto não citar data, use a data de hoje se ela estiver no mês selecionado; senão, use o dia 01 do mês selecionado.",
+    '- "categoria": exatamente uma da lista de categorias (apenas para despesas). Se nenhuma servir, use "Outros" ou a mais próxima.',
+    '- "formaPagamento": "debito", "credito" ou "pix" (apenas para despesas). Sem menção, use "debito". Compras parceladas normalmente são no crédito.',
+    '- "parcelas": número de 1 a 12. Sem menção a parcelamento, use 1. "3x" significa 3 parcelas e o valor informado é o total.',
+    "",
+    "Texto do usuário:",
+    texto,
+  ].join("\n");
+}
+
+/** Chama a API do Gemini e retorna a transação interpretada (ou lança erro com mensagem amigável). */
+async function interpretarTransacaoIA(texto) {
+  const chave = (dados.config.geminiApiKey || "").trim();
+  if (!chave) {
+    throw new Error("Configure sua chave da API do Gemini em Configurações.");
+  }
+
+  const corpo = {
+    contents: [{ parts: [{ text: promptTransacaoIA(texto) }] }],
+    generationConfig: {
+      temperature: 0.1,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          tipo: { type: "STRING", enum: ["ganho", "despesa"] },
+          descricao: { type: "STRING" },
+          valor: { type: "NUMBER" },
+          data: { type: "STRING" },
+          categoria: { type: "STRING" },
+          formaPagamento: { type: "STRING", enum: ["debito", "credito", "pix"] },
+          parcelas: { type: "INTEGER" },
+        },
+        required: ["tipo", "descricao", "valor", "data"],
+      },
+    },
+  };
+
+  const json = await chamarGeminiGenerateContent(chave, corpo);
+  const textoIA = extrairTextoGemini(json);
+  if (!textoIA) throw new Error("A IA não retornou uma resposta válida. Tente reescrever.");
+
+  let s;
+  try {
+    s = JSON.parse(textoIA);
+  } catch {
+    throw new Error("Não foi possível interpretar a resposta da IA. Tente reescrever.");
+  }
+  return validarSugestaoIA(s);
+}
+
+/** Tenta os modelos Flash atuais; 404 em um modelo não interrompe os demais. */
+async function chamarGeminiGenerateContent(chave, corpo) {
+  let ultimoErro = null;
+
+  for (const modelo of GEMINI_MODELOS) {
+    let resposta;
+    try {
+      resposta = await fetch(`${GEMINI_API_BASE}/${modelo}:generateContent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": chave },
+        body: JSON.stringify(corpo),
+      });
+    } catch {
+      throw new Error("Sem conexão com a API. Verifique sua internet.");
+    }
+
+    if (resposta.ok) return resposta.json();
+
+    const detalhe = await lerErroGemini(resposta);
+    if (resposta.status === 404) {
+      ultimoErro = detalhe;
+      continue;
+    }
+    throw new Error(mensagemErroGemini(resposta.status, detalhe));
+  }
+
+  throw new Error(mensagemErroGemini(404, ultimoErro));
+}
+
+async function lerErroGemini(resposta) {
+  try {
+    const json = await resposta.json();
+    return json?.error?.message || "";
+  } catch {
+    return "";
+  }
+}
+
+function mensagemErroGemini(status, detalhe) {
+  const texto = (detalhe || "").toLowerCase();
+  if (status === 400 || status === 403) {
+    if (texto.includes("api key") || texto.includes("permission") || texto.includes("unregistered")) {
+      return "Chave da API inválida. Confira em Configurações.";
+    }
+    return detalhe || "A API recusou a solicitação. Tente reescrever o texto.";
+  }
+  if (status === 429) return "Limite gratuito da API atingido. Tente novamente em instantes.";
+  if (status === 404) {
+    return "Nenhum modelo Gemini Flash disponível para esta chave. No AI Studio, confirme que a chave está ativa.";
+  }
+  return detalhe || `Erro na API do Gemini (${status}). Tente novamente.`;
+}
+
+function extrairTextoGemini(json) {
+  const parts = json?.candidates?.[0]?.content?.parts;
+  if (!Array.isArray(parts)) return "";
+  return parts.map((p) => p.text || "").join("").trim();
+}
+
+/** Sanitiza a resposta da IA antes de aplicá-la ao formulário. */
+function validarSugestaoIA(s) {
+  const valor = Number(s.valor);
+  if (!(valor > 0)) throw new Error("A IA não identificou um valor válido. Inclua o valor no texto.");
+
+  const data = /^\d{4}-\d{2}-\d{2}$/.test(s.data || "") ? s.data : hojeISO();
+  const tipo = s.tipo === "ganho" ? "ganho" : "despesa";
+  const categorias = dados.config.categorias;
+  const categoria = categorias.includes(s.categoria)
+    ? s.categoria
+    : categorias.includes("Outros") ? "Outros" : categorias[0] || "Outros";
+
+  return {
+    tipo,
+    descricao: (s.descricao || "").trim() || "Lançamento",
+    valor: +valor.toFixed(2),
+    data,
+    categoria,
+    formaPagamento: ["debito", "credito", "pix"].includes(s.formaPagamento) ? s.formaPagamento : "debito",
+    parcelas: Math.min(12, Math.max(1, parseInt(s.parcelas, 10) || 1)),
+  };
+}
+
+/** Preenche o formulário do modal com a sugestão da IA (o usuário revisa antes de salvar). */
+function aplicarSugestaoIA(s) {
+  document.querySelector(`input[name="tx-tipo"][value="${s.tipo}"]`).checked = true;
+  document.getElementById("tx-descricao").value = s.descricao;
+  document.getElementById("tx-valor").value = s.valor;
+  document.getElementById("tx-data").value = s.data;
+
+  if (s.tipo === "despesa") {
+    document.getElementById("tx-forma-pagamento").value = s.formaPagamento;
+    selecionarCategoriaModal(s.categoria);
+  }
+
+  atualizarCamposModal();
+
+  if (s.tipo === "despesa" && s.parcelas > 1 && (s.formaPagamento === "credito" || s.formaPagamento === "pix")) {
+    preencherSelectParcelas();
+    document.getElementById("tx-parcelas").value = String(s.parcelas);
+  }
+}
+
+function statusIA(msg, tipo) {
+  const el = document.getElementById("ia-nl-status");
+  el.textContent = msg || "\u00a0";
+  el.classList.toggle("hidden", !msg);
+  el.classList.toggle("ia-nl-status-erro", tipo === "erro");
+}
+
+async function preencherComIA() {
+  const input = document.getElementById("tx-nl-texto");
+  const btn = document.getElementById("btn-ia-preencher");
+  const texto = input.value.trim();
+
+  if (!texto) {
+    statusIA("Descreva a transação primeiro, ex.: “gastei 45 no mercado ontem”.", "erro");
+    input.focus();
+    return;
+  }
+  if (!(dados.config.geminiApiKey || "").trim()) {
+    statusIA("Configure sua chave da API do Gemini em Configurações › Assistente de IA.", "erro");
+    return;
+  }
+
+  btn.disabled = true;
+  input.disabled = true;
+  statusIA("Interpretando com IA…");
+
+  try {
+    const sugestao = await interpretarTransacaoIA(texto);
+    aplicarSugestaoIA(sugestao);
+    statusIA("Formulário preenchido. Revise os campos e salve.");
+  } catch (e) {
+    statusIA(e.message, "erro");
+  } finally {
+    btn.disabled = false;
+    input.disabled = false;
+  }
+}
+
 /* ---------- Modal ---------- */
 
 function preencherGridCategorias(selecionada) {
@@ -1244,6 +1461,11 @@ function abrirModal(tx) {
   form.reset();
   document.getElementById("tx-id").value = tx ? tx.id : "";
   document.getElementById("modal-titulo").textContent = tx ? "Editar transação" : "Nova transação";
+
+  // Entrada por linguagem natural (IA): apenas em lançamentos novos
+  document.getElementById("ia-nl-wrap").classList.toggle("hidden", !!tx);
+  document.getElementById("tx-nl-texto").value = "";
+  statusIA("");
 
   let categoriaInicial = "Outros";
   if (tx?.categoria) {
@@ -1619,6 +1841,21 @@ function configurarEventos() {
     garantirSalariosAutomaticos(mesSelecionado > mesHoje ? mesSelecionado : mesHoje);
     toast("Configurações salvas.");
     renderizar();
+  });
+
+  document.getElementById("btn-salvar-gemini").addEventListener("click", () => {
+    dados.config.geminiApiKey = document.getElementById("config-gemini-key").value.trim();
+    salvar();
+    toast(dados.config.geminiApiKey ? "Chave da API salva." : "Chave da API removida.");
+  });
+
+  // IA: preencher transação por linguagem natural
+  document.getElementById("btn-ia-preencher").addEventListener("click", preencherComIA);
+  document.getElementById("tx-nl-texto").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault(); // não submete o formulário; apenas interpreta o texto
+      preencherComIA();
+    }
   });
 
   document.getElementById("btn-add-categoria").addEventListener("click", adicionarCategoria);
