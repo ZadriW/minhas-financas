@@ -223,6 +223,13 @@ describe("CSV", () => {
 describe("validarSugestaoIA", () => {
   const cats = ["Alimentação", "Outros"];
 
+  test("casa a categoria ignorando acentos e maiúsculas", () => {
+    const s = C.validarSugestaoIA({ valor: 10, categoria: "alimentacao" }, cats, "2026-11-14");
+    assert.equal(s.categoria, "Alimentação");
+    const desconhecida = C.validarSugestaoIA({ valor: 10, categoria: "Pets" }, cats, "2026-11-14");
+    assert.equal(desconhecida.categoria, "Outros");
+  });
+
   test("normaliza a resposta da IA", () => {
     const s = C.validarSugestaoIA(
       { tipo: "despesa", descricao: " Mercado ", valor: "45.678", data: "2026-13-01", categoria: "Inexistente", formaPagamento: "boleto", parcelas: 40 },

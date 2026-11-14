@@ -458,9 +458,10 @@ function validarSugestaoIA(s, categorias, hoje) {
   const valor = Number(s.valor);
   if (!(valor > 0)) throw new Error("A IA não identificou um valor válido. Inclua o valor no texto.");
 
-  const categoria = categorias.includes(s.categoria)
-    ? s.categoria
-    : categorias.includes("Outros") ? "Outros" : categorias[0] || "Outros";
+  // A IA às vezes devolve a categoria sem acento ou com outra caixa ("Vestuario")
+  const normalizar = (x) => String(x ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+  const categoria = categorias.find((c) => normalizar(c) === normalizar(s.categoria))
+    ?? (categorias.includes("Outros") ? "Outros" : categorias[0] || "Outros");
 
   return {
     tipo: s.tipo === "ganho" ? "ganho" : "despesa",

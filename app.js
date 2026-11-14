@@ -1024,13 +1024,13 @@ function renderizar() {
 
 // Manter em sincronia com api/ia.js (modelos, prompt e schema).
 const GEMINI_MODELOS = [
-  "gemini-3.5-flash",
   "gemini-3.1-flash-lite",
   "gemini-2.5-flash",
+  "gemini-3.5-flash",
 ];
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_STATUS_TENTAR_PROXIMO = [404, 429, 500, 503, 504];
-const IA_TIMEOUT_MS = 20000;
+const IA_TIMEOUT_MS = 22000; // acima do orçamento total do servidor (17 s em api/ia.js)
 
 /** Monta o prompt com o contexto necessário para interpretar o texto do usuário. */
 function promptTransacaoIA(texto) {
