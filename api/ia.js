@@ -172,7 +172,46 @@ async function chamarGemini(chave, prompt) {
   throw erro;
 }
 
-export default async function handler(request) {
+/** Lê o corpo bruto: usa o req.body da Vercel quando existe, senão o stream. */
+async function lerCorpo(req) {
+  let corpo;
+  try {
+    corpo = req.body;
+  } catch {
+    return "{corpo inválido"; // a Vercel lança ao acessar req.body com JSON malformado
+  }
+  if (typeof corpo === "string") return corpo;
+  if (Buffer.isBuffer(corpo)) return corpo.toString("utf8");
+  if (corpo && typeof corpo === "object") return JSON.stringify(corpo);
+
+  const pedacos = [];
+  for await (const pedaco of req) pedacos.push(pedaco);
+  return Buffer.concat(pedacos).toString("utf8");
+}
+
+/**
+ * A Vercel chama funções Node no formato (req, res). Converte para
+ * Request/Response da Web e delega para tratar().
+ */
+export default async function handler(req, res) {
+  const headers = new Headers();
+  for (const [nome, valor] of Object.entries(req.headers)) {
+    if (typeof valor === "string") headers.set(nome, valor);
+  }
+  const temCorpo = req.method !== "GET" && req.method !== "HEAD";
+  const request = new Request(`http://${req.headers.host || "localhost"}${req.url}`, {
+    method: req.method,
+    headers,
+    body: temCorpo ? await lerCorpo(req) : undefined,
+  });
+
+  const resposta = await tratar(request);
+  res.statusCode = resposta.status;
+  resposta.headers.forEach((valor, nome) => res.setHeader(nome, valor));
+  res.end(Buffer.from(await resposta.arrayBuffer()));
+}
+
+async function tratar(request) {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204 });
   }
