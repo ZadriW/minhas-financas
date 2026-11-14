@@ -5,6 +5,9 @@
  * A chave fica apenas no servidor, em Settings › Environment Variables.
  * O prompt é montado aqui (e não no cliente) para impedir que o endpoint
  * seja usado como proxy genérico para o Gemini.
+ *
+ * Manter em sincronia com app.js (modelos, prompt e schema), usado quando o
+ * usuário configura uma chave pessoal.
  */
 
 const GEMINI_MODELOS = [
@@ -13,9 +16,15 @@ const GEMINI_MODELOS = [
   "gemini-2.5-flash",
 ];
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const GEMINI_STATUS_TENTAR_PROXIMO = [404, 429, 500, 503, 504];
+const GEMINI_TIMEOUT_MS = 15000;
 
 const TEXTO_MAX = 300;
 const CATEGORIAS_MAX = 30;
+
+// Limite por IP em memória: vale só dentro de cada instância da função
+// (best-effort). Para um limite global, configure uma regra de rate limit
+// no Firewall da Vercel para /api/ia.
 const LIMITE_POR_MINUTO = 6;
 const contadores = new Map();
 
@@ -40,6 +49,27 @@ function estourouLimite(ip) {
     }
   }
   return atual > LIMITE_POR_MINUTO;
+}
+
+/** Aceita apenas chamadas do próprio site (navegadores sempre enviam Origin em POST cross-site). */
+function origemPermitida(request) {
+  const origem = request.headers.get("origin");
+  if (!origem) return true;
+  try {
+    return new URL(origem).host === request.headers.get("host");
+  } catch {
+    return false;
+  }
+}
+
+async function fetchComTimeout(url, opcoes) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), GEMINI_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...opcoes, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function montarPrompt({ texto, categorias, hoje, mesSelecionado }) {
@@ -111,12 +141,19 @@ async function chamarGemini(chave, prompt) {
   let ultimoDetalhe = "";
 
   for (const modelo of GEMINI_MODELOS) {
-    const url = `${GEMINI_API_BASE}/${modelo}:generateContent?key=${encodeURIComponent(chave)}`;
-    const resposta = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(corpo),
-    });
+    let resposta;
+    try {
+      resposta = await fetchComTimeout(`${GEMINI_API_BASE}/${modelo}:generateContent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": chave },
+        body: JSON.stringify(corpo),
+      });
+    } catch (e) {
+      if (e.name !== "AbortError") throw e;
+      ultimoStatus = 504;
+      ultimoDetalhe = "";
+      continue;
+    }
 
     if (resposta.ok) return resposta.json();
 
@@ -127,7 +164,7 @@ async function chamarGemini(chave, prompt) {
     } catch {
       ultimoDetalhe = "";
     }
-    if (resposta.status !== 404) break;
+    if (!GEMINI_STATUS_TENTAR_PROXIMO.includes(resposta.status)) break;
   }
 
   const erro = new Error(ultimoDetalhe || `Erro na API do Gemini (${ultimoStatus}).`);
@@ -142,6 +179,10 @@ export default async function handler(request) {
 
   if (request.method !== "POST") {
     return json(405, { erro: "Método não permitido." });
+  }
+
+  if (!origemPermitida(request)) {
+    return json(403, { erro: "Origem não permitida." });
   }
 
   const chave = (process.env.GEMINI_API_KEY || "").trim();
@@ -181,11 +222,18 @@ export default async function handler(request) {
 
     return json(200, sugestao);
   } catch (e) {
+    const detalhe = (e.message || "").toLowerCase();
     if (e.status === 429) {
       return json(429, { erro: "Limite de uso da IA atingido. Tente novamente em instantes." });
     }
-    if (e.status === 400 || e.status === 401 || e.status === 403) {
+    if (e.status === 401 || e.status === 403 || (e.status === 400 && /api key|permission|unregistered/.test(detalhe))) {
       return json(500, { erro: "IA temporariamente indisponível. Confira a chave GEMINI_API_KEY na Vercel." });
+    }
+    if (e.status === 400) {
+      return json(422, { erro: "A IA não conseguiu interpretar o texto. Tente reescrever." });
+    }
+    if (e.status === 504) {
+      return json(504, { erro: "A IA demorou demais para responder. Tente novamente." });
     }
     return json(502, { erro: "Erro ao consultar a IA. Tente novamente." });
   }
