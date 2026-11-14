@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Minhas Finanças — Controle Pessoal</title>
-  <link rel="icon" href="favicon.png" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="favicon.svg" />
+  <link rel="icon" href="favicon.png" type="image/png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
@@ -95,12 +95,12 @@
       <header class="topbar">
         <h1 id="section-title">Dashboard</h1>
         <div class="month-selector">
-          <button id="mes-anterior" class="btn btn-ghost" title="Mês anterior">‹</button>
+          <button id="mes-anterior" class="btn btn-ghost" title="Mês anterior" aria-label="Mês anterior">‹</button>
           <span class="mes-atual-wrap">
             <span id="mes-status-dot" class="mes-status-dot" aria-hidden="true"></span>
-            <span id="mes-atual-label" class="mes-atual-label"></span>
+            <span id="mes-atual-label" class="mes-atual-label" aria-live="polite"></span>
           </span>
-          <button id="mes-proximo" class="btn btn-ghost" title="Próximo mês">›</button>
+          <button id="mes-proximo" class="btn btn-ghost" title="Próximo mês" aria-label="Próximo mês">›</button>
           <button id="mes-fechar" class="btn btn-outline" title="Encerrar o mês selecionado e ir para o próximo">Fechar mês</button>
           <button id="mes-hoje" class="btn btn-ghost">Hoje</button>
         </div>
@@ -202,9 +202,9 @@
       <section id="section-investimentos" class="section">
         <div class="cards-grid">
           <div class="card stat-card">
-            <div class="stat-label">Total investido (acumulado)</div>
+            <div class="stat-label">Patrimônio investido</div>
             <div class="stat-value invest" id="inv-total">R$ 0,00</div>
-            <div class="stat-sub">aportes + rendimentos − resgates</div>
+            <div class="stat-sub">aportes − resgates + rendimento estimado</div>
           </div>
           <div class="card stat-card">
             <div class="stat-label">Aportes no mês</div>
@@ -212,12 +212,12 @@
             <div class="stat-sub" id="inv-mes-sub">&nbsp;</div>
           </div>
           <div class="card stat-card">
-            <div class="stat-label">Rendimentos recebidos</div>
-            <div class="stat-value positive" id="inv-rendimentos-recebidos">R$ 0,00</div>
-            <div class="stat-sub">já somados ao saldo investido</div>
+            <div class="stat-label">Rendimento acumulado</div>
+            <div class="stat-value positive" id="inv-rendimento-acumulado">R$ 0,00</div>
+            <div class="stat-sub">estimado · já incluído no patrimônio</div>
           </div>
           <div class="card stat-card">
-            <div class="stat-label">Rendimento estimado</div>
+            <div class="stat-label">Rendimento mensal</div>
             <div class="stat-value invest" id="inv-rendimento">R$ 0,00</div>
             <div class="stat-sub">por mês · com base na % informada</div>
           </div>
@@ -227,8 +227,8 @@
           <div class="card">
             <div class="card-header">
               <div>
-                <h2>Distribuição por tipo de ativo</h2>
-                <p class="card-subtitle">% investido em cada projeto</p>
+                <h2>Distribuição da carteira</h2>
+                <p class="card-subtitle">% do patrimônio em cada investimento</p>
               </div>
             </div>
             <div class="chart-wrap chart-wrap-investimentos"><canvas id="chart-inv-tipos"></canvas></div>
@@ -363,7 +363,7 @@
       <section id="section-configuracoes" class="section">
         <div class="card narrow">
           <div class="card-header"><h2>Salário mensal</h2></div>
-          <p class="muted">Seu salário é uma renda fixa: ao salvar um valor, ele passa a ser lançado automaticamente como ganho todo mês, a partir do mês atual em diante.</p>
+          <p class="muted">Seu salário é uma renda fixa: ao salvar um valor, ele passa a ser lançado automaticamente como ganho todo mês. Mudanças de valor ou dia atualizam o mês atual e os seguintes (meses passados, fechados ou editados à mão não mudam).</p>
           <div class="form-row">
             <div class="form-group">
               <label for="config-salario">Valor do salário (R$)</label>
@@ -403,7 +403,7 @@
             <label for="config-gemini-key">Chave da API do Gemini (opcional)</label>
             <input type="password" id="config-gemini-key" placeholder="AIza..." autocomplete="off" />
           </div>
-          <p class="muted">A chave fica salva apenas neste navegador, junto com seus dados.</p>
+          <p class="muted">A chave fica salva apenas neste navegador e não é incluída nos backups exportados.</p>
           <button class="btn btn-primary" id="btn-salvar-gemini">Salvar chave</button>
         </div>
 
@@ -418,10 +418,10 @@
 
   <!-- ===== Modal de transação ===== -->
   <div class="modal-overlay hidden" id="modal-transacao">
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
       <div class="modal-header">
         <h2 id="modal-titulo">Nova transação</h2>
-        <button class="btn btn-ghost" id="modal-fechar">✕</button>
+        <button type="button" class="btn btn-ghost" id="modal-fechar" aria-label="Fechar">✕</button>
       </div>
       <form id="form-transacao">
         <input type="hidden" id="tx-id" />
@@ -431,13 +431,13 @@
           </label>
           <div class="ia-nl-row">
             <input type="text" id="tx-nl-texto" placeholder="Ex.: gastei 45 no mercado ontem no PIX" autocomplete="off" />
-            <button type="button" class="btn btn-outline" id="btn-ia-preencher" title="Preencher o formulário com IA">
+            <button type="button" class="btn btn-outline" id="btn-ia-preencher" title="Preencher o formulário com IA" aria-label="Preencher o formulário com IA">
               <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
             </button>
           </div>
-          <p class="muted ia-nl-status hidden" id="ia-nl-status">&nbsp;</p>
+          <p class="muted ia-nl-status hidden" id="ia-nl-status" aria-live="polite">&nbsp;</p>
         </div>
-        <div class="tipo-toggle">
+        <div class="tipo-toggle" id="tx-tipo-toggle">
           <label><input type="radio" name="tx-tipo" value="ganho" /> <span class="tag tag-ganho">Ganho</span></label>
           <label><input type="radio" name="tx-tipo" value="despesa" checked /> <span class="tag tag-despesa">Despesa</span></label>
           <input type="radio" name="tx-tipo" value="investimento" class="hidden" id="tx-tipo-investimento" />
@@ -475,7 +475,7 @@
             <select id="tx-parcelas"></select>
           </div>
         </div>
-        <p class="muted hidden" id="tx-parcela-info">&nbsp;</p>
+        <p class="muted hidden" id="tx-info">&nbsp;</p>
         <div class="form-group hidden" id="grupo-ativo">
           <label for="tx-ativo">Tipo de ativo</label>
           <select id="tx-ativo">
@@ -498,8 +498,18 @@
     </div>
   </div>
 
-  <div id="toast" class="toast hidden"></div>
+  <!-- ===== Diálogo de confirmação ===== -->
+  <div class="modal-overlay hidden" id="modal-dialogo">
+    <div class="modal modal-dialogo" role="alertdialog" aria-modal="true" aria-labelledby="dialogo-titulo" aria-describedby="dialogo-mensagem">
+      <h2 id="dialogo-titulo"></h2>
+      <p id="dialogo-mensagem" class="dialogo-mensagem"></p>
+      <div class="dialogo-acoes" id="dialogo-acoes"></div>
+    </div>
+  </div>
 
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script src="calculos.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
