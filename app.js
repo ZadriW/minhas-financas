@@ -1023,10 +1023,11 @@ function renderizar() {
 /* ---------- IA (Gemini): transação em linguagem natural ---------- */
 
 // Manter em sincronia com api/ia.js (modelos, prompt e schema).
-const GEMINI_MODELOS = [
-  "gemini-3.1-flash-lite",
-  "gemini-2.5-flash",
-  "gemini-3.5-flash",
+// O modelo leve responde em < 1 s, mas às vezes trava: tenta-o de novo antes do modelo maior.
+const GEMINI_TENTATIVAS = [
+  { modelo: "gemini-3.1-flash-lite", timeoutMs: 5000 },
+  { modelo: "gemini-3.1-flash-lite", timeoutMs: 5000 },
+  { modelo: "gemini-3.5-flash", timeoutMs: 10000 },
 ];
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_STATUS_TENTAR_PROXIMO = [404, 429, 500, 503, 504];
@@ -1057,9 +1058,9 @@ function promptTransacaoIA(texto) {
   ].join("\n");
 }
 
-async function fetchComTimeout(url, opcoes) {
+async function fetchComTimeout(url, opcoes, timeoutMs = IA_TIMEOUT_MS) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), IA_TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     return await fetch(url, { ...opcoes, signal: ctrl.signal });
   } finally {
@@ -1170,14 +1171,14 @@ async function chamarGeminiGenerateContent(chave, corpo) {
   let ultimoStatus = 404;
   let ultimoDetalhe = "";
 
-  for (const modelo of GEMINI_MODELOS) {
+  for (const { modelo, timeoutMs } of GEMINI_TENTATIVAS) {
     let resposta;
     try {
       resposta = await fetchComTimeout(`${GEMINI_API_BASE}/${modelo}:generateContent`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": chave },
         body: JSON.stringify(corpo),
-      });
+      }, timeoutMs);
     } catch (e) {
       if (e.name !== "AbortError") throw new Error("Sem conexão com a API. Verifique sua internet.");
       ultimoStatus = 504;

@@ -10,15 +10,15 @@
  * usuário configura uma chave pessoal.
  */
 
-// Do mais rápido ao mais lento: a extração é simples e o usuário está esperando.
-const GEMINI_MODELOS = [
-  "gemini-3.1-flash-lite",
-  "gemini-2.5-flash",
-  "gemini-3.5-flash",
+// O modelo leve responde em < 1 s, mas às vezes trava: tenta-o de novo com
+// limite curto antes de recorrer ao modelo maior (bem mais lento).
+const GEMINI_TENTATIVAS = [
+  { modelo: "gemini-3.1-flash-lite", timeoutMs: 5000 },
+  { modelo: "gemini-3.1-flash-lite", timeoutMs: 5000 },
+  { modelo: "gemini-3.5-flash", timeoutMs: 7000 },
 ];
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_STATUS_TENTAR_PROXIMO = [404, 429, 500, 503, 504];
-const GEMINI_TIMEOUT_MS = 8000; // por tentativa
 const GEMINI_ORCAMENTO_MS = 17000; // total, abaixo do limite do cliente (app.js)
 const GEMINI_TEMPO_MINIMO_MS = 1500; // não inicia tentativa com menos tempo que isso
 
@@ -144,7 +144,7 @@ async function chamarGemini(chave, prompt) {
   let ultimoDetalhe = "";
   const inicio = Date.now();
 
-  for (const modelo of GEMINI_MODELOS) {
+  for (const { modelo, timeoutMs } of GEMINI_TENTATIVAS) {
     const restante = GEMINI_ORCAMENTO_MS - (Date.now() - inicio);
     if (restante < GEMINI_TEMPO_MINIMO_MS) {
       ultimoStatus = 504;
@@ -158,7 +158,7 @@ async function chamarGemini(chave, prompt) {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": chave },
         body: JSON.stringify(corpo),
-      }, Math.min(GEMINI_TIMEOUT_MS, restante));
+      }, Math.min(timeoutMs, restante));
     } catch (e) {
       if (e.name !== "AbortError") throw e;
       console.log(`[ia] ${modelo} tempo esgotado (${Date.now() - t0} ms)`);
