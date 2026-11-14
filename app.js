@@ -80,14 +80,6 @@ function dataBR(dataISO) {
   return `${d}/${m}/${a}`;
 }
 
-function diaMesAbreviado(dataISO) {
-  const [ano, mes, dia] = dataISO.split("-").map(Number);
-  const abrev = new Date(ano, mes - 1, dia)
-    .toLocaleDateString("pt-BR", { month: "short" })
-    .replace(".", "");
-  return `${dia} de ${abrev}`;
-}
-
 function toast(msg) {
   const el = document.getElementById("toast");
   el.textContent = msg;
@@ -161,27 +153,38 @@ let resgateEmEdicao = null; // projeto da carteira quando o modal está em modo 
 const charts = {}; // instâncias Chart.js por id de canvas
 
 const TITULOS = {
-  dashboard: "Dashboard",
-  transacoes: "Transações",
-  investimentos: "Investimentos",
-  relatorios: "Relatórios",
-  configuracoes: "Configurações",
+  dashboard: ["Início", "Um resumo simples de como está o seu mês."],
+  transacoes: ["Extrato", "Tudo o que entrou e saiu no mês."],
+  investimentos: ["Investimentos", "Quanto você tem guardado e quanto está rendendo."],
+  relatorios: ["Relatórios", "Compare os meses e faça backup dos seus dados."],
+  configuracoes: ["Ajustes", "Salário, categorias e assistente de IA."],
 };
 
-const CORES = ["#4f7cff", "#2ecc8f", "#ff5c74", "#f5b545", "#a06bff", "#3fd0d4", "#ff8f5c", "#7f8fb3", "#e05cff", "#9fd45c"];
+// Paleta do gráfico da carteira (tons com luminosidade parecida, do tema "Noite serena")
+const CORES = ["#7B93FF", "#5BE0A1", "#B7A2FF", "#FFB86B", "#5BC8D9", "#FF8F7E", "#E3A3D8", "#A4ADC4"];
 
 /* ---------- Navegação ---------- */
 
 function irPara(secao) {
+  if (!TITULOS[secao]) return;
   secaoAtiva = secao;
-  document.querySelectorAll(".nav-item, .bottom-nav-item").forEach((b) =>
-    b.classList.toggle("active", b.dataset.section === secao)
-  );
+  document.querySelectorAll(".nav-item[data-section], .bottom-nav-item[data-section]").forEach((b) => {
+    const ativo = b.dataset.section === secao;
+    b.classList.toggle("active", ativo);
+    if (ativo) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
+  document.getElementById("btn-mais").classList.toggle("active", secao === "relatorios" || secao === "configuracoes");
   document.querySelectorAll(".section").forEach((s) =>
     s.classList.toggle("active", s.id === `section-${secao}`)
   );
-  document.getElementById("section-title").textContent = TITULOS[secao];
+  const [titulo, subtitulo] = TITULOS[secao];
+  document.getElementById("section-title").textContent = titulo;
+  document.getElementById("section-subtitle").textContent = subtitulo;
+  const sheet = document.getElementById("sheet-mais");
+  if (!sheet.classList.contains("hidden")) fecharCamada(sheet);
   renderizar();
+  window.scrollTo({ top: 0 });
 }
 
 function mudarMes(mesISO) {
@@ -294,8 +297,8 @@ function desenharGrafico(canvasId, config) {
   charts[canvasId] = new Chart(ctx, config);
 }
 
-Chart.defaults.color = "#8b95ab";
-Chart.defaults.borderColor = "#2a3550";
+Chart.defaults.color = "#A4ADC4";
+Chart.defaults.borderColor = "#252F48";
 Chart.defaults.font.family = "'Inter', sans-serif";
 
 /** Plugin genérico para desenhar um texto (e subtexto) no centro de gráficos doughnut. */
@@ -309,12 +312,12 @@ const centerTextPlugin = {
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillStyle = opts.color || "#e8ecf5";
-    ctx.font = `800 ${opts.fontSize || 22}px 'Inter', sans-serif`;
+    ctx.fillStyle = opts.color || "#EEF1F7";
+    ctx.font = `600 ${opts.fontSize || 22}px 'Space Grotesk', 'Inter', sans-serif`;
     ctx.fillText(opts.text, centerX, centerY - (opts.subtext ? 11 : 0));
     if (opts.subtext) {
-      ctx.font = `600 ${opts.subFontSize || 12}px 'Inter', sans-serif`;
-      ctx.fillStyle = opts.subColor || "#8b95ab";
+      ctx.font = `500 ${opts.subFontSize || 12}px 'Inter', sans-serif`;
+      ctx.fillStyle = opts.subColor || "#A4ADC4";
       ctx.fillText(opts.subtext, centerX, centerY + 13);
     }
     ctx.restore();
@@ -342,16 +345,18 @@ function opcoesLegendaRosca(total, mobile) {
         text: `${label}  ·  ${pct.toFixed(0)}%  ·  ${moeda(valor)}`,
         fillStyle: cores[i],
         strokeStyle: cores[i],
-        fontColor: "#ffffff",
+        fontColor: "#C9D0E0",
         hidden: false,
         index: i,
       };
     });
   };
 
-  return mobile
-    ? { position: "bottom", align: "center", labels: { boxWidth: 10, padding: 10, color: "#ffffff", font: { size: 11 }, generateLabels } }
-    : { position: "right", labels: { boxWidth: 12, padding: 14, color: "#ffffff", font: { size: 13 }, generateLabels } };
+  return {
+    position: "bottom",
+    align: "center",
+    labels: { boxWidth: 10, boxHeight: 10, padding: mobile ? 10 : 14, color: "#C9D0E0", font: { size: mobile ? 12 : 13 }, generateLabels },
+  };
 }
 
 /**
@@ -372,7 +377,7 @@ function graficoRosca(canvasId, entradas, { msgVazio, subtexto, cor }) {
   if (!entradas.length) {
     desenharGrafico(canvasId, {
       type: "doughnut",
-      data: { labels: [msgVazio], datasets: [{ data: [1], backgroundColor: ["#2a3550"], borderWidth: 0 }] },
+      data: { labels: [msgVazio], datasets: [{ data: [1], backgroundColor: ["#252F48"], borderWidth: 0 }] },
       options: {
         plugins: { legend: { display: false }, tooltip: { enabled: false }, centerText },
         cutout: mobile ? "74%" : "68%",
@@ -391,8 +396,8 @@ function graficoRosca(canvasId, entradas, { msgVazio, subtexto, cor }) {
       datasets: [{
         data: entradas.map(([, v]) => v),
         backgroundColor: entradas.map((_, i) => CORES[i % CORES.length]),
-        borderWidth: 2,
-        borderColor: "#1a2236",
+        borderWidth: 3,
+        borderColor: "#141A2C",
       }],
     },
     options: {
@@ -409,54 +414,59 @@ function graficoRosca(canvasId, entradas, { msgVazio, subtexto, cor }) {
   });
 }
 
-/** Despesas por categoria em barras horizontais (% do total). */
-function graficoCategoriasPercentual(containerId, entradas, msgVazio) {
+/* ---------- Ícones ---------- */
+
+const ICONES_CATEGORIA = {
+  Alimentação: "fa-basket-shopping",
+  Moradia: "fa-house",
+  Transporte: "fa-car",
+  Saúde: "fa-heart-pulse",
+  Educação: "fa-book",
+  Lazer: "fa-ticket",
+  Assinaturas: "fa-repeat",
+  Vestuário: "fa-shirt",
+  Contas: "fa-bolt",
+  Outros: "fa-ellipsis",
+};
+
+function iconeCategoriaHTML(cat) {
+  return `<i class="fa-solid ${ICONES_CATEGORIA[cat] || "fa-tag"}" aria-hidden="true"></i>`;
+}
+
+function iconeTransacao(t) {
+  if (t.tipo === "despesa") return iconeCategoriaHTML(t.categoria);
+  const fa = t.tipo === "ganho"
+    ? ehTransacaoSalario(t) ? "fa-wallet" : "fa-hand-holding-dollar"
+    : t.resgate ? "fa-arrow-rotate-left" : "fa-arrow-trend-up";
+  return `<i class="fa-solid ${fa}" aria-hidden="true"></i>`;
+}
+
+/** Gastos por categoria em barras horizontais: largura relativa à maior, com % do total. */
+function barrasCategorias(containerId, entradas, msgVazio) {
   const el = document.getElementById(containerId);
   if (!el) return;
 
-  const total = entradas.reduce((s, [, v]) => s + v, 0);
   if (!entradas.length) {
     el.innerHTML = `<div class="cat-bars-empty">${escapeHTML(msgVazio)}</div>`;
     return;
   }
 
-  el.innerHTML = entradas.map(([cat, valor], i) => {
+  const total = entradas.reduce((s, [, v]) => s + v, 0);
+  const maior = entradas[0][1];
+  el.innerHTML = entradas.map(([cat, valor]) => {
     const pct = total > 0 ? (valor / total) * 100 : 0;
+    const largura = maior > 0 ? (valor / maior) * 100 : 0;
     return `<div class="cat-bar-row">
-      <div class="cat-bar-header">
-        <span class="cat-bar-name">${escapeHTML(cat)}</span>
-        <span class="cat-bar-meta">${pct.toFixed(0)}% · ${moeda(valor)}</span>
-      </div>
-      <div class="cat-bar-track">
-        <div class="cat-bar-fill" style="width:${pct.toFixed(1)}%;background:${CORES[i % CORES.length]}"></div>
+      <span class="cat-bar-icone">${iconeCategoriaHTML(cat)}</span>
+      <div class="cat-bar-corpo">
+        <div class="cat-bar-header">
+          <span class="cat-bar-name">${escapeHTML(cat)}</span>
+          <span class="cat-bar-meta">${moeda(valor)} <span class="cat-bar-pct">· ${pct.toFixed(0)}%</span></span>
+        </div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${largura.toFixed(1)}%"></div></div>
       </div>
     </div>`;
   }).join("");
-}
-
-/* ---------- Linhas de transação ---------- */
-
-const ICONES_DESPESA = {
-  Transporte: "fa-solid fa-car",
-  Contas: "fa-solid fa-rectangle-list",
-  Lazer: "fa-solid fa-face-laugh",
-  Alimentação: "fa-solid fa-burger",
-  Saúde: "fa-solid fa-plus",
-  Assinaturas: "fa-solid fa-pen",
-  Vestuário: "fa-solid fa-shirt",
-  Outros: "fa-solid fa-chart-pie",
-};
-
-function iconeTransacao(t) {
-  if (t.tipo === "ganho") {
-    const fa = ehTransacaoSalario(t) ? "fa-solid fa-money-bill" : "fa-solid fa-sack-dollar";
-    return `<i class="${fa}" aria-hidden="true"></i>`;
-  }
-  if (t.tipo === "despesa") {
-    const fa = ICONES_DESPESA[t.categoria];
-    return fa ? `<i class="${fa}" aria-hidden="true"></i>` : "🧾";
-  }
-  return t.resgate ? "↩️" : `<i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i>`;
 }
 
 /** Informações de exibição comuns às listas de transações (textos ainda não escapados). */
@@ -490,118 +500,172 @@ function botoesAcaoHTML(t) {
     </button>`;
 }
 
-function linhaTransacaoHTML(t) {
-  const v = infoVisualTransacao(t);
-  let extraTags = "";
-  if (v.formaPagamento) extraTags += `<span class="tag tag-categoria">${escapeHTML(v.formaPagamento)}</span>`;
-  if (v.parcela) extraTags += `<span class="tag tag-categoria">${v.parcela}</span>`;
-  return `<tr>
-    <td>${escapeHTML(dataBR(t.data))}</td>
-    <td>${escapeHTML(t.descricao)}</td>
-    <td><span class="tag tag-categoria">${escapeHTML(v.cat)}</span>${extraTags}</td>
-    <td><span class="tag ${v.tagTipo}">${v.nomeTipo}</span></td>
-    <td class="right ${v.classeValor}">${v.sinal} ${moeda(t.valor)}</td>
-    <td class="right">${botoesAcaoHTML(t)}</td>
-  </tr>`;
+/** Detalhe de uma linha: forma de pagamento, parcela ou origem (ainda não escapado). */
+function detalheTransacao(t) {
+  const partes = [];
+  if (t.tipo === "despesa") {
+    partes.push(FORMAS_PAGAMENTO[t.formaPagamento] || FORMAS_PAGAMENTO.debito);
+    if (t.parcelaTotal > 1) partes.push(`parcela ${Number(t.parcelaAtual)} de ${Number(t.parcelaTotal)}`);
+  } else if (t.tipo === "ganho") {
+    partes.push(t.salarioAuto ? "Lançado automaticamente" : ehTransacaoSalario(t) ? "Salário" : "Entrada");
+  } else {
+    partes.push(t.resgate ? "Retirada do investimento" : `Aplicação · ${t.ativo || "Investimento"}`);
+  }
+  return partes.join(" · ");
 }
 
-function linhaTransacaoMobileHTML(t) {
+/** Uma linha de lançamento; com ações (editar/excluir) no Extrato, sem ações no Início. */
+function linhaLancamentoHTML(t, comAcoes) {
   const v = infoVisualTransacao(t);
-  let meta = `${escapeHTML(v.cat)} · ${escapeHTML(diaMesAbreviado(t.data))}`;
-  if (v.formaPagamento) meta += ` · ${escapeHTML(v.formaPagamento)}`;
-  if (v.parcela) meta += ` · ${v.parcela}`;
-  return `<div class="tx-mobile-item">
-    <div class="tx-icon tx-${t.tipo}">${iconeTransacao(t)}</div>
-    <div class="tx-mobile-info">
-      <div class="tx-desc">${escapeHTML(t.descricao)}</div>
-      <div class="tx-meta">${meta}</div>
+  const chip = t.tipo === "despesa" || (t.tipo === "ganho" && t.categoria && t.categoria !== "Ganhos")
+    ? `<span class="lanc-cat">${escapeHTML(v.cat)}</span>`
+    : "";
+  return `<div class="lanc-item">
+    <span class="lanc-icone lanc-${t.tipo}">${iconeTransacao(t)}</span>
+    <div class="lanc-info">
+      <span class="lanc-titulo">${escapeHTML(t.descricao)}</span>
+      <span class="lanc-detalhe">${escapeHTML(detalheTransacao(t))}</span>
     </div>
-    <div class="tx-valor ${v.classeValor}">${v.sinal} ${moeda(t.valor)}</div>
-    <div class="tx-mobile-acoes">${botoesAcaoHTML(t)}</div>
+    ${comAcoes ? chip : ""}
+    <span class="lanc-valor ${v.classeValor}">${v.sinal} ${moeda(t.valor)}</span>
+    ${comAcoes ? `<div class="lanc-acoes">${botoesAcaoHTML(t)}</div>` : ""}
   </div>`;
 }
 
-function linhaTransacaoResumoHTML(t) {
-  const v = infoVisualTransacao(t);
-  return `<div class="tx-item">
-    <div class="tx-icon tx-${t.tipo}">${iconeTransacao(t)}</div>
-    <div class="tx-info">
-      <div class="tx-desc">${escapeHTML(t.descricao)}</div>
-      <div class="tx-meta">${escapeHTML(v.cat)} · ${escapeHTML(diaMesAbreviado(t.data))}</div>
+/** "Hoje, sábado, 14 de novembro" / "Ontem, …" / "Quinta, 12 de novembro". */
+function rotuloDia(dataISO) {
+  const [a, m, d] = dataISO.split("-").map(Number);
+  const data = new Date(a, m - 1, d);
+  const semana = data.toLocaleDateString("pt-BR", { weekday: "long" }).replace("-feira", "");
+  const diaMes = data.toLocaleDateString("pt-BR", { day: "numeric", month: "long" });
+  const hoje = hojeISO();
+  const [ha, hm, hd] = hoje.split("-").map(Number);
+  const ontem = new Date(ha, hm - 1, hd - 1);
+  const ontemISO = `${ontem.getFullYear()}-${pad2(ontem.getMonth() + 1)}-${pad2(ontem.getDate())}`;
+  if (dataISO === hoje) return `Hoje, ${semana}, ${diaMes}`;
+  if (dataISO === ontemISO) return `Ontem, ${semana}, ${diaMes}`;
+  return `${semana.charAt(0).toUpperCase()}${semana.slice(1)}, ${diaMes}`;
+}
+
+function sinalMoeda(v) {
+  return `${v > 0 ? "+" : v < 0 ? "−" : ""} ${moeda(Math.abs(v))}`.trim();
+}
+
+/** Lista agrupada por dia (Início e Extrato). */
+function listaPorDiaHTML(transacoes, { comAcoes = false, totalDoDia = false } = {}) {
+  return agruparPorDia(transacoes).map((g) => `<div class="dia-grupo">
+    <div class="dia-cabecalho">
+      <span>${escapeHTML(rotuloDia(g.data))}</span>
+      ${totalDoDia ? `<span class="dia-total">${sinalMoeda(g.total)} no dia</span>` : ""}
     </div>
-    <div class="tx-valor ${v.classeValor}">${v.sinal} ${moeda(t.valor)}</div>
-  </div>`;
+    ${g.itens.map((t) => linhaLancamentoHTML(t, comAcoes)).join("")}
+  </div>`).join("");
 }
 
 /* ---------- Renderização: Dashboard ---------- */
 
-function renderDashboard() {
-  const r = resumoDoMes(dados.transacoes, mesSelecionado);
-
-  document.getElementById("stat-salario").textContent = moeda(r.salario);
-  document.getElementById("stat-salario-sub").textContent = dados.config.mesInicioSalario
-    ? `renda fixa desde ${nomeMes(dados.config.mesInicioSalario)}`
-    : "não configurado — defina em Configurações";
-
-  document.getElementById("stat-ganhos").textContent = moeda(r.ganhos);
-  document.getElementById("stat-ganhos-sub").textContent =
-    r.salario > 0 ? `${moeda(r.salario)} de salário` : "incluindo salário";
-  document.getElementById("stat-despesas").textContent = moeda(r.despesas);
-  document.getElementById("stat-despesas-sub").textContent =
-    r.ganhos > 0 ? `${((r.despesas / r.ganhos) * 100).toFixed(0)}% da renda` : " ";
-  document.getElementById("stat-investido").textContent = moeda(r.investido);
-  document.getElementById("stat-investido-sub").textContent =
-    r.ganhos > 0 ? `${((r.investido / r.ganhos) * 100).toFixed(0)}% dos ganhos` : " ";
-
-  const positivo = r.saldo >= 0;
-  const elSaldo = document.getElementById("stat-saldo");
-  elSaldo.textContent = moeda(r.saldo);
-  elSaldo.className = "stat-value " + (positivo ? "positive" : "negative");
-
-  const elBadge = document.getElementById("stat-saldo-badge");
-  elBadge.textContent = positivo ? "Positivo" : "Negativo";
-  elBadge.className = "stat-badge " + (positivo ? "positive" : "negative");
-
-  document.getElementById("dash-mes-label").textContent = nomeMes(mesSelecionado);
-
-  graficoRosca("chart-categorias", despesasPorCategoria(dados.transacoes, [mesSelecionado]), {
-    msgVazio: "Sem despesas no mês",
-    subtexto: "gasto total",
-    cor: "#ff5c74",
-  });
-
-  const ultimas = transacoesDoMes(dados.transacoes, mesSelecionado)
-    .sort((a, b) => b.data.localeCompare(a.data))
-    .slice(0, 8);
-  document.getElementById("dash-ultimas").innerHTML = ultimas.length
-    ? ultimas.map(linhaTransacaoResumoHTML).join("")
-    : `<div class="tx-empty">Nenhuma transação neste mês</div>`;
+function porcento(parte, todo) {
+  return todo > 0 ? Math.round((parte / todo) * 100) : 0;
 }
 
-/* ---------- Renderização: Transações ---------- */
+function renderDashboard() {
+  const r = resumoDoMes(dados.transacoes, mesSelecionado);
+  const txsMes = transacoesDoMes(dados.transacoes, mesSelecionado);
+  const mesNome = nomeMes(mesSelecionado);
+
+  // Primeiro uso: sem salário e sem nenhum lançamento
+  document.getElementById("dash-boas-vindas").classList.toggle(
+    "hidden", dados.config.salario > 0 || dados.transacoes.length > 0
+  );
+
+  // Sobra do mês
+  const elSobra = document.getElementById("hero-sobra");
+  elSobra.textContent = r.saldo < 0 ? `− ${moeda(-r.saldo)}` : moeda(r.saldo);
+  elSobra.classList.toggle("negativo", r.saldo < 0);
+
+  const usado = porcento(r.despesas, r.ganhos);
+  const guardou = porcento(Math.max(r.investido, 0), r.ganhos);
+  let frase;
+  if (!txsMes.length) frase = `Nenhum lançamento em ${mesNome.toLowerCase()} ainda.`;
+  else if (r.ganhos <= 0) frase = `Ainda não entrou dinheiro em ${mesNome.toLowerCase()}.`;
+  else if (r.saldo < 0) frase = `Você gastou e guardou ${moeda(-r.saldo)} a mais do que entrou.`;
+  else frase = `Você já usou ${usado}% do que entrou${guardou > 0 ? ` e guardou ${guardou}%` : ""}.`;
+  document.getElementById("hero-frase").textContent = frase;
+
+  // Barra: proporções do maior entre o que entrou e o que saiu
+  const guardado = Math.max(r.investido, 0);
+  const base = Math.max(r.ganhos, r.despesas + guardado);
+  const pGasto = base > 0 ? (r.despesas / base) * 100 : 0;
+  const pGuardado = base > 0 ? (guardado / base) * 100 : 0;
+  const pSobra = base > 0 ? (Math.max(r.saldo, 0) / base) * 100 : 0;
+  document.getElementById("hero-barra-gasto").style.width = `${pGasto}%`;
+  document.getElementById("hero-barra-guardado").style.width = `${pGuardado}%`;
+  document.getElementById("hero-barra-sobra").style.width = `${pSobra}%`;
+  document.getElementById("hero-barra").setAttribute(
+    "aria-label",
+    base > 0
+      ? `Gasto ${Math.round(pGasto)}%, guardado ${Math.round(pGuardado)}%, sobrando ${Math.round(pSobra)}%`
+      : "Sem valores no mês"
+  );
+
+  document.getElementById("hero-entrou").textContent = `+ ${moeda(r.ganhos)}`;
+  document.getElementById("hero-entrou-sub").textContent = r.salario > 0
+    ? `Salário ${moeda(r.salario)}${r.outrosGanhos > 0 ? ` + outros ${moeda(r.outrosGanhos)}` : ""}`
+    : r.ganhos > 0 ? "Entradas do mês" : dados.config.salario > 0 ? "Salário ainda não lançado" : "Salário não informado";
+  const qtdGastos = txsMes.filter((t) => t.tipo === "despesa").length;
+  document.getElementById("hero-saiu").textContent = `− ${moeda(r.despesas)}`;
+  document.getElementById("hero-saiu-sub").textContent =
+    qtdGastos ? `${qtdGastos} ${qtdGastos === 1 ? "gasto" : "gastos"} no mês` : "Nenhum gasto no mês";
+  document.getElementById("hero-guardado").textContent = moeda(r.investido);
+  document.getElementById("hero-guardado-sub").textContent =
+    r.investido < 0 ? "Mais retirado do que aplicado" : "Aplicado em investimentos";
+
+  // Para onde foi o dinheiro
+  const categorias = despesasPorCategoria(dados.transacoes, [mesSelecionado]);
+  document.getElementById("dash-total-gasto").textContent = r.despesas > 0 ? `Total ${moeda(r.despesas)}` : "";
+  barrasCategorias("dash-categorias", categorias.slice(0, 6), "Nenhum gasto registrado neste mês.");
+
+  // Últimos lançamentos (os 6 mais recentes, agrupados por dia)
+  const ultimas = [...txsMes].sort((a, b) => b.data.localeCompare(a.data)).slice(0, 6);
+  document.getElementById("dash-ultimas").innerHTML = ultimas.length
+    ? listaPorDiaHTML(ultimas)
+    : `<div class="cat-bars-empty">Nenhum lançamento neste mês.</div>`;
+}
+
+/* ---------- Renderização: Extrato ---------- */
 
 function renderTransacoes() {
   const tipo = document.getElementById("filtro-tipo").value;
   const categoria = document.getElementById("filtro-categoria").value;
   const busca = document.getElementById("filtro-busca").value.trim().toLowerCase();
 
-  let txs = transacoesDoMes(dados.transacoes, mesSelecionado);
+  const r = resumoDoMes(dados.transacoes, mesSelecionado);
+  document.getElementById("ext-entrou").textContent = `+ ${moeda(r.ganhos)}`;
+  document.getElementById("ext-saiu").textContent = `− ${moeda(r.despesas)}`;
+  document.getElementById("ext-guardado").textContent = moeda(r.investido);
+
+  document.querySelectorAll("[data-filtro-tipo]").forEach((b) => {
+    const ativo = b.dataset.filtroTipo === tipo;
+    b.classList.toggle("active", ativo);
+    b.setAttribute("aria-pressed", String(ativo));
+  });
+
+  const doMes = transacoesDoMes(dados.transacoes, mesSelecionado);
+  let txs = doMes;
   if (tipo) txs = txs.filter((t) => t.tipo === tipo);
   if (categoria) txs = txs.filter((t) => (t.categoria || t.ativo) === categoria);
   if (busca) txs = txs.filter((t) => t.descricao.toLowerCase().includes(busca));
-  txs.sort((a, b) => b.data.localeCompare(a.data));
 
-  document.getElementById("tabela-transacoes").innerHTML = txs.map(linhaTransacaoHTML).join("");
-  document.getElementById("transacoes-lista-mobile").innerHTML = txs.map(linhaTransacaoMobileHTML).join("");
+  document.getElementById("transacoes-lista").innerHTML = listaPorDiaHTML(txs, { comAcoes: true, totalDoDia: true });
   document.getElementById("transacoes-vazio").classList.toggle("hidden", txs.length > 0);
+  document.getElementById("transacoes-vazio-msg").textContent = doMes.length
+    ? "Nenhum lançamento encontrado com esses filtros."
+    : `Nenhum lançamento em ${nomeMes(mesSelecionado).toLowerCase()}.`;
 
-  const total = txs.reduce((s, t) => {
-    if (t.tipo === "ganho") return s + t.valor;
-    if (t.tipo === "despesa") return s - t.valor;
-    return s - valorInvestimento(t);
-  }, 0);
-  document.getElementById("transacoes-resumo").textContent =
-    txs.length ? `${txs.length} transação(ões) · efeito no saldo: ${moeda(total)}` : "";
+  const total = txs.reduce((s, t) => s + efeitoNoSaldo(t), 0);
+  document.getElementById("transacoes-resumo").textContent = txs.length
+    ? `${txs.length} ${txs.length === 1 ? "lançamento" : "lançamentos"} · efeito no saldo: ${sinalMoeda(total)}`
+    : "";
 }
 
 function preencherFiltroCategorias() {
@@ -613,7 +677,7 @@ function preencherFiltroCategorias() {
     if (t.ativo) cats.add(t.ativo);
   }
   sel.innerHTML =
-    '<option value="">Todas as categorias</option>' +
+    '<option value="">Todas</option>' +
     [...cats].sort().map((c) => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join("");
   sel.value = atual;
 }
@@ -630,24 +694,24 @@ function renderInvestimentos() {
 
   document.getElementById("inv-total").textContent = moeda(carteira.total);
   document.getElementById("inv-mes").textContent = moeda(rMes.investido);
-  document.getElementById("inv-mes-sub").textContent = `${nomeMes(mesSelecionado)} · aportes − resgates`;
+  document.getElementById("inv-mes-sub").textContent = `Em ${nomeMes(mesSelecionado).toLowerCase()}, já descontadas as retiradas`;
   document.getElementById("inv-rendimento-acumulado").textContent = moeda(carteira.rendimentoTotal);
   document.getElementById("inv-rendimento").textContent = moeda(carteira.rendimentoMesTotal);
 
   graficoRosca("chart-inv-tipos", carteira.projetos.map((p) => [p.descricao, p.saldoAtual]), {
     msgVazio: "Sem investimentos",
-    subtexto: "patrimônio",
-    cor: "#a06bff",
+    subtexto: "investido",
+    cor: "#C3B2FF",
   });
 
   const elCarteira = document.getElementById("carteira-lista");
   if (!carteira.projetos.length) {
-    elCarteira.innerHTML = `<div class="carteira-empty">Nenhum investimento na carteira</div>`;
+    elCarteira.innerHTML = `<div class="carteira-empty">Você ainda não registrou investimentos. Use o formulário acima para adicionar o primeiro.</div>`;
     return;
   }
   elCarteira.innerHTML = carteira.projetos.map((p, i) => {
     const nome = escapeHTML(p.descricao);
-    const meta = `${escapeHTML(p.ativo)} · ${escapeHTML(mesAbrev(p.data))} · ${escapeHTML(formatarTaxa(p.taxa))}% ao mês`;
+    const meta = `${escapeHTML(p.ativo)} · desde ${escapeHTML(mesAbrev(p.data).toLowerCase())} · rende ${escapeHTML(formatarTaxa(p.taxa))}% ao mês`;
     return `<div class="carteira-item">
       <span class="carteira-dot" style="background:${CORES[i % CORES.length]}" aria-hidden="true"></span>
       <div class="carteira-info">
@@ -656,9 +720,9 @@ function renderInvestimentos() {
       </div>
       <div class="carteira-valores">
         <div class="carteira-saldo">${moeda(p.saldoAtual)}</div>
-        <div class="carteira-rendimento">+${moeda(p.rendimentoMes)}/mês</div>
+        <div class="carteira-rendimento">+ ${moeda(p.rendimentoMes)} por mês</div>
       </div>
-      <button type="button" class="carteira-acao carteira-resgatar" data-resgatar-projeto="${nome}" title="Resgatar" aria-label="Resgatar de ${nome}">
+      <button type="button" class="carteira-acao carteira-resgatar" data-resgatar-projeto="${nome}" title="Retirar (resgatar)" aria-label="Retirar dinheiro de ${nome}">
         <i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i>
       </button>
       <button type="button" class="carteira-acao carteira-excluir" data-excluir-projeto="${nome}" title="Excluir da carteira" aria-label="Excluir ${nome} da carteira">
@@ -774,10 +838,10 @@ function renderRelMesMobileDetalhe() {
 
   const linhas = [
     ["Salário", rm.salario, "positive"],
-    ["Outros ganhos", rm.outrosGanhos, "positive"],
-    ["Despesas", rm.despesas, "negative"],
-    ["Investido", rm.investido, "invest"],
-    ["Saldo", rm.saldo, rm.saldo >= 0 ? "positive" : "negative"],
+    ["Outras entradas", rm.outrosGanhos, "positive"],
+    ["Gastos", rm.despesas, "negative"],
+    ["Guardado", rm.investido, "invest"],
+    ["Sobra", rm.saldo, rm.saldo >= 0 ? "positive" : "negative"],
   ];
   document.getElementById("rel-mes-detalhe").innerHTML =
     linhas.map(([rotulo, valor, classe]) => `<div class="rel-mes-row">
@@ -785,7 +849,7 @@ function renderRelMesMobileDetalhe() {
       <span class="rel-mes-row-value ${classe}">${moeda(valor)}</span>
     </div>`).join("") +
     `<div class="rel-mes-row">
-      <span class="rel-mes-row-label">Taxa de poupança</span>
+      <span class="rel-mes-row-label">Quanto guardou</span>
       <span class="rel-mes-row-value">${formatarTaxaPoupanca(rm)}</span>
     </div>`;
 }
@@ -820,13 +884,13 @@ function renderRelatorios() {
   const elSobrou = document.getElementById("rel-sobrou");
   elSobrou.textContent = moeda(r.saldo);
   elSobrou.className = "stat-value " + (r.saldo >= 0 ? "positive" : "negative");
-  document.getElementById("rel-sobrou-sub").textContent = "ganhos − gastos − investimentos";
+  document.getElementById("rel-sobrou-sub").textContent = "O que entrou, menos gastos e o que foi guardado";
 
-  graficoCategoriasPercentual("rel-categorias-barras", despesasPorCategoria(dados.transacoes, meses), "Sem despesas no período");
+  barrasCategorias("rel-categorias-barras", despesasPorCategoria(dados.transacoes, meses), "Nenhum gasto no período.");
 
   const resumos = meses.map((m) => resumoDoMes(dados.transacoes, m));
   const linhas = meses
-    .map((m, i) => `<tr>${linhaResumoMensalHTML(nomeMes(m) + (mesFechado(m) ? " 🔒" : ""), resumos[i], false)}</tr>`)
+    .map((m, i) => `<tr>${linhaResumoMensalHTML(nomeMes(m) + (mesFechado(m) ? ' <i class="fa-solid fa-lock icone-fechado" title="Mês fechado" aria-label="fechado"></i>' : ""), resumos[i], false)}</tr>`)
     .reverse();
 
   const totais = resumos.reduce(
@@ -863,15 +927,11 @@ function renderConfiguracoes() {
 }
 
 function renderResumoSidebar() {
-  const r = resumoDoMes(dados.transacoes, mesSelecionado);
-
-  document.getElementById("sidebar-salario").textContent = moeda(dados.config.salario);
-
-  const elLivre = document.getElementById("sidebar-livre");
-  elLivre.textContent = moeda(r.saldo);
-  elLivre.className = "summary-value " + (r.saldo >= 0 ? "positive" : "negative");
-
-  document.getElementById("sidebar-investimentos").textContent = moeda(carteiraAtual().total);
+  const carteira = carteiraAtual();
+  document.getElementById("sidebar-investimentos").textContent = moeda(carteira.total);
+  document.getElementById("sidebar-rendimento").textContent = carteira.rendimentoMesTotal > 0
+    ? `+ ${moeda(carteira.rendimentoMesTotal)} de rendimento por mês`
+    : carteira.total > 0 ? "Sem rendimento informado" : "Nenhum investimento ainda";
 }
 
 function atualizarControlesMes() {
@@ -891,15 +951,21 @@ function atualizarControlesMes() {
       : "Não é possível avançar além do mês atual"
     : "Próximo mês";
 
-  document.getElementById("mes-hoje").disabled = mesSelecionado === mesHoje;
+  document.getElementById("mes-hoje").classList.toggle("hidden", mesSelecionado === mesHoje);
+  document.getElementById("mes-status-texto").textContent = fechado
+    ? "Mês fechado"
+    : mesSelecionado === mesHoje ? "Mês atual · aberto" : mesSelecionado > mesHoje ? "Mês futuro · aberto" : "Mês aberto";
 
   const btnFechar = document.getElementById("mes-fechar");
-  btnFechar.textContent = fechado ? "Reabrir mês" : "Fechar mês";
+  const rotulo = fechado ? "Reabrir mês" : "Conferir e fechar mês";
+  document.getElementById("mes-fechar-texto").textContent = rotulo;
+  btnFechar.setAttribute("aria-label", rotulo);
+  btnFechar.querySelector("i").className = `fa-solid ${fechado ? "fa-lock-open" : "fa-lock"}`;
   btnFechar.title = fechado
     ? "Reabrir o mês para permitir alterações"
-    : "Encerrar o mês selecionado e ir para o próximo";
+    : "Depois de conferir tudo, feche o mês para protegê-lo contra alterações";
 
-  ["btn-nova-transacao", "btn-nova-transacao-2", "btn-nova-transacao-3", "btn-nova-transacao-mobile"].forEach((id) => {
+  ["btn-nova-transacao", "btn-nova-transacao-3", "btn-nova-transacao-4", "btn-nova-transacao-mobile"].forEach((id) => {
     document.getElementById(id).disabled = fechado;
   });
   document.getElementById("form-investimento-carteira")
@@ -1013,7 +1079,7 @@ async function interpretarTransacaoIA(texto) {
 
   if (eLocal) {
     if (!chavePessoal) {
-      throw new Error("Configure sua chave da API do Gemini em Configurações para usar a IA localmente.");
+      throw new Error("Para usar a IA neste computador, informe sua chave do Gemini em Ajustes.");
     }
     return interpretarViaChavePessoal(texto, chavePessoal);
   }
@@ -1141,7 +1207,7 @@ async function lerErroGemini(resposta) {
 function mensagemErroGemini(status, detalhe) {
   const texto = (detalhe || "").toLowerCase();
   if (status === 401 || status === 403 || (status === 400 && /api key|permission|unregistered/.test(texto))) {
-    return "Chave da API inválida. Confira em Configurações.";
+    return "Chave da API inválida. Confira em Ajustes.";
   }
   if (status === 400) return "A IA não conseguiu interpretar o texto. Tente reescrever.";
   if (status === 429) return "Limite gratuito da API atingido. Tente novamente em instantes.";
@@ -1190,7 +1256,7 @@ async function preencherComIA() {
   const texto = input.value.trim();
 
   if (!texto) {
-    statusIA("Descreva a transação primeiro, ex.: “gastei 45 no mercado ontem”.", "erro");
+    statusIA("Escreva o lançamento primeiro, ex.: “gastei 45 no mercado ontem”.", "erro");
     input.focus();
     return;
   }
@@ -1225,7 +1291,12 @@ function preencherGridCategorias(selecionada) {
   const cat = selecionada || categorias[0];
 
   grid.innerHTML = categorias
-    .map((c) => `<button type="button" class="cat-grid-btn${c === cat ? " active" : ""}" data-categoria="${escapeHTML(c)}">${escapeHTML(c)}</button>`)
+    .map((c) => {
+      const ativa = c === cat;
+      return `<button type="button" class="cat-grid-btn${ativa ? " active" : ""}" data-categoria="${escapeHTML(c)}" aria-pressed="${ativa}">
+        ${iconeCategoriaHTML(c)}<span>${escapeHTML(c)}</span>
+      </button>`;
+    })
     .join("");
 
   document.getElementById("tx-categoria").value = cat;
@@ -1234,8 +1305,15 @@ function preencherGridCategorias(selecionada) {
 function selecionarCategoriaModal(cat) {
   document.getElementById("tx-categoria").value = cat;
   document.querySelectorAll(".cat-grid-btn").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.categoria === cat);
+    const ativa = btn.dataset.categoria === cat;
+    btn.classList.toggle("active", ativa);
+    btn.setAttribute("aria-pressed", String(ativa));
   });
+}
+
+function selecionarFormaPagamento(forma) {
+  document.getElementById("tx-forma-pagamento").value = forma;
+  atualizarCamposModal();
 }
 
 function atualizarCamposModal() {
@@ -1247,7 +1325,16 @@ function atualizarCamposModal() {
   document.getElementById("grupo-resgate").classList.toggle("hidden", tipo !== "investimento" || modoResgate);
   document.getElementById("grupo-forma-pagamento").classList.toggle("hidden", tipo !== "despesa");
 
+  document.getElementById("modal-salvar").textContent = modoResgate
+    ? "Confirmar retirada"
+    : { despesa: "Salvar gasto", ganho: "Salvar entrada", investimento: "Salvar" }[tipo];
+
   const forma = document.getElementById("tx-forma-pagamento").value;
+  document.querySelectorAll("#tx-forma-botoes .pill").forEach((b) => {
+    const ativa = b.dataset.forma === forma;
+    b.classList.toggle("active", ativa);
+    b.setAttribute("aria-pressed", String(ativa));
+  });
   const permiteParcelas = tipo === "despesa" && ehNova && (forma === "credito" || forma === "pix");
   document.getElementById("grupo-parcelas").classList.toggle("hidden", !permiteParcelas);
   if (permiteParcelas) preencherSelectParcelas();
@@ -1290,11 +1377,12 @@ function abrirModal(tx, { resgateDe = null } = {}) {
   form.reset();
   document.getElementById("tx-id").value = tx ? tx.id : "";
   document.getElementById("modal-titulo").textContent = resgateDe
-    ? `Resgatar — ${resgateDe.descricao}`
-    : tx ? "Editar transação" : "Nova transação";
+    ? `Retirar de ${resgateDe.descricao}`
+    : tx ? "Editar lançamento" : "Novo lançamento";
 
-  // Entrada por linguagem natural (IA): apenas em lançamentos novos
+  // Entrada por linguagem natural (IA): apenas em lançamentos novos, começa recolhida
   document.getElementById("ia-nl-wrap").classList.toggle("hidden", !!tx || !!resgateDe);
+  mostrarPainelIA(false);
   document.getElementById("tx-nl-texto").value = "";
   statusIA("");
 
@@ -1323,7 +1411,7 @@ function abrirModal(tx, { resgateDe = null } = {}) {
     if (tx.parcelaTotal > 1) {
       mostrarInfoModal(`Parcela ${tx.parcelaAtual} de ${tx.parcelaTotal} · ${FORMAS_PAGAMENTO[tx.formaPagamento] || ""}`);
     } else if (tx.salarioAuto) {
-      mostrarInfoModal("Salário lançado automaticamente. Após editar, ele não acompanha mais mudanças feitas em Configurações.");
+      mostrarInfoModal("Salário lançado automaticamente. Após editar, ele não acompanha mais mudanças feitas em Ajustes.");
     }
   } else {
     // Data padrão: hoje se estivermos no mês selecionado, senão dia 1 do mês
@@ -1352,7 +1440,13 @@ function abrirModal(tx, { resgateDe = null } = {}) {
 
   const modal = document.getElementById("modal-transacao");
   abrirCamada(modal, fecharModal);
-  (resgateDe ? elValor : elDescricao).focus();
+  elValor.focus();
+}
+
+function mostrarPainelIA(aberto) {
+  document.getElementById("ia-nl-painel").classList.toggle("hidden", !aberto);
+  document.getElementById("btn-ia-abrir").setAttribute("aria-expanded", String(aberto));
+  if (aberto) document.getElementById("tx-nl-texto").focus();
 }
 
 function fecharModal() {
@@ -1375,7 +1469,7 @@ function salvarTransacaoDoForm(e) {
 
   const original = id ? dados.transacoes.find((t) => t.id === id) : null;
   if (id && !original) {
-    toast("Esta transação não existe mais.");
+    toast("Este lançamento não existe mais.");
     fecharModal();
     return;
   }
@@ -1432,7 +1526,7 @@ function salvarTransacaoDoForm(e) {
     }
     dados.transacoes.push(...lista);
     fecharModal();
-    persistir(`Despesa parcelada em ${parcelas}x adicionada.`);
+    persistir(`Gasto parcelado em ${parcelas}x salvo.`);
     return;
   }
 
@@ -1458,7 +1552,7 @@ function salvarTransacaoDoForm(e) {
     dados.transacoes.push(tx);
   }
 
-  const msg = tx.resgate && !original ? "Resgate registrado." : original ? "Transação atualizada." : "Transação adicionada.";
+  const msg = tx.resgate && !original ? "Retirada registrada." : original ? "Lançamento atualizado." : "Lançamento salvo.";
   fecharModal();
   persistir(msg);
 }
@@ -1510,10 +1604,10 @@ async function excluirTransacao(id) {
     return;
   }
 
-  const ok = await confirmar("Excluir transação", `Excluir "${t.descricao}" de ${moeda(t.valor)}?`, { rotulo: "Excluir", perigo: true });
+  const ok = await confirmar("Excluir lançamento", `Excluir "${t.descricao}" de ${moeda(t.valor)}?`, { rotulo: "Excluir", perigo: true });
   if (!ok) return;
   dados.transacoes = dados.transacoes.filter((x) => x.id !== id);
-  persistir("Transação excluída.");
+  persistir("Lançamento excluído.");
 }
 
 /* ---------- Categorias ---------- */
@@ -1619,12 +1713,20 @@ async function importarJSON(arquivo) {
 
 function configurarEventos() {
   // Navegação
-  document.querySelectorAll(".nav-item, .bottom-nav-item").forEach((b) =>
+  document.querySelectorAll(".nav-item[data-section], .bottom-nav-item[data-section], .sheet-item[data-section]").forEach((b) =>
     b.addEventListener("click", () => irPara(b.dataset.section))
   );
   document.querySelectorAll("[data-goto]").forEach((b) =>
     b.addEventListener("click", () => irPara(b.dataset.goto))
   );
+  const sheetMais = document.getElementById("sheet-mais");
+  document.getElementById("btn-mais").addEventListener("click", () => {
+    abrirCamada(sheetMais, () => fecharCamada(sheetMais));
+    sheetMais.querySelector(".sheet-item").focus();
+  });
+  sheetMais.addEventListener("click", (e) => {
+    if (e.target === sheetMais) fecharCamada(sheetMais);
+  });
 
   // Seletor de mês
   document.getElementById("mes-anterior").addEventListener("click", () => {
@@ -1640,7 +1742,7 @@ function configurarEventos() {
   document.getElementById("mes-hoje").addEventListener("click", () => mudarMes(mesDe(hojeISO())));
 
   // Botões de nova transação
-  ["btn-nova-transacao", "btn-nova-transacao-2", "btn-nova-transacao-3", "btn-nova-transacao-mobile"].forEach((id) => {
+  ["btn-nova-transacao", "btn-nova-transacao-3", "btn-nova-transacao-4", "btn-nova-transacao-mobile"].forEach((id) => {
     document.getElementById(id).addEventListener("click", () => abrirModal(null));
   });
   document.getElementById("form-investimento-carteira").addEventListener("submit", salvarInvestimentoCarteira);
@@ -1648,6 +1750,14 @@ function configurarEventos() {
   // Modais e diálogos
   document.addEventListener("keydown", teclaNasCamadas);
   document.getElementById("modal-fechar").addEventListener("click", fecharModal);
+  document.getElementById("modal-cancelar").addEventListener("click", fecharModal);
+  document.getElementById("tx-forma-botoes").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-forma]");
+    if (b) selecionarFormaPagamento(b.dataset.forma);
+  });
+  document.getElementById("btn-ia-abrir").addEventListener("click", () => {
+    mostrarPainelIA(document.getElementById("ia-nl-painel").classList.contains("hidden"));
+  });
   document.getElementById("modal-transacao").addEventListener("click", (e) => {
     if (e.target.id === "modal-transacao") fecharModal();
   });
@@ -1657,7 +1767,6 @@ function configurarEventos() {
   document.querySelectorAll('input[name="tx-tipo"]').forEach((r) =>
     r.addEventListener("change", atualizarCamposModal)
   );
-  document.getElementById("tx-forma-pagamento").addEventListener("change", atualizarCamposModal);
   document.getElementById("tx-valor").addEventListener("input", () => {
     if (!document.getElementById("grupo-parcelas").classList.contains("hidden")) preencherSelectParcelas();
   });
@@ -1686,10 +1795,14 @@ function configurarEventos() {
     }
   });
 
-  // Filtros de transações
-  ["filtro-tipo", "filtro-categoria"].forEach((id) =>
-    document.getElementById(id).addEventListener("change", renderTransacoes)
+  // Filtros do extrato
+  document.querySelectorAll("[data-filtro-tipo]").forEach((b) =>
+    b.addEventListener("click", () => {
+      document.getElementById("filtro-tipo").value = b.dataset.filtroTipo;
+      renderTransacoes();
+    })
   );
+  document.getElementById("filtro-categoria").addEventListener("change", renderTransacoes);
   document.getElementById("filtro-busca").addEventListener("input", renderTransacoes);
 
   // Relatórios
@@ -1730,7 +1843,7 @@ function configurarEventos() {
 
     aplicarMudancaSalario(dados, mesHoje);
     sincronizarSalariosApp();
-    persistir("Configurações salvas.");
+    persistir("Salário salvo.");
   });
 
   document.getElementById("btn-salvar-gemini").addEventListener("click", () => {
@@ -1769,8 +1882,7 @@ function configurarEventos() {
   window.addEventListener("resize", () => {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
-      if (secaoAtiva === "dashboard") renderDashboard();
-      else if (secaoAtiva === "investimentos") renderInvestimentos();
+      if (secaoAtiva === "investimentos") renderInvestimentos();
     }, 150);
   });
 

@@ -240,6 +240,26 @@ describe("validarSugestaoIA", () => {
   });
 });
 
+describe("agruparPorDia", () => {
+  test("agrupa por data, do mais recente ao mais antigo, com o saldo do dia", () => {
+    const grupos = C.agruparPorDia([
+      { id: "a", tipo: "ganho", valor: 5000, data: "2026-11-05" },
+      { id: "b", tipo: "despesa", valor: 212.4, data: "2026-11-14" },
+      { id: "c", tipo: "despesa", valor: 1450, data: "2026-11-05" },
+      { id: "d", tipo: "investimento", valor: 500, data: "2026-11-05" },
+      { id: "e", tipo: "investimento", valor: 100, data: "2026-11-14", resgate: true },
+    ]);
+    assert.deepEqual(grupos.map((g) => g.data), ["2026-11-14", "2026-11-05"]);
+    assert.deepEqual(grupos[0].itens.map((t) => t.id).sort(), ["b", "e"]);
+    assert.equal(grupos[0].total, -112.4);
+    assert.equal(grupos[1].total, 3050);
+  });
+
+  test("lista vazia não gera grupos", () => {
+    assert.deepEqual(C.agruparPorDia([]), []);
+  });
+});
+
 describe("escapeHTML", () => {
   test("escapa caracteres especiais e aceita nulos", () => {
     assert.equal(C.escapeHTML(`<a href="x">'&'</a>`), "&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;");

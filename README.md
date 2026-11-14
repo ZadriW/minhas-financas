@@ -13,17 +13,18 @@ Aplicação web de finanças pessoais em HTML, CSS e JavaScript puros (sem build
 
 ## Funcionalidades
 
-### Dashboard
-- Resumo do mês selecionado: salário, ganhos, despesas, valor investido e saldo livre (ganhos − despesas − investimentos).
-- Gráfico de despesas por categoria (rosca) com porcentagem e valor de cada categoria.
-- Últimas transações do mês.
+### Início
+- **Sobra deste mês** em destaque, com a barra Gasto/Guardado/Sobrando e o resumo do que entrou, saiu e foi guardado.
+- **Para onde foi o dinheiro:** gastos por categoria, com ícones.
+- Últimos lançamentos agrupados por dia.
+- No primeiro uso, um aviso guia o usuário a informar o salário e registrar o primeiro gasto.
 
 ### Navegação por mês, fechamento e reabertura
 - Seletor de mês no topo (‹ › e "Hoje"); todas as telas respeitam o mês selecionado.
 - **Fechar mês:** o mês fica somente leitura. Não é possível criar, editar ou excluir lançamentos nele, nem datar lançamentos (parcelas, resgates, sugestões da IA) dentro dele. O mês fechado aparece com um cadeado.
 - **Reabrir mês:** libera o mês para correções.
 
-### Transações
+### Extrato e lançamentos
 - Ganhos e despesas com descrição, valor, data e categoria.
 - Formas de pagamento: débito, cartão de crédito e PIX.
 - **Parcelamento** em até 12x (crédito ou PIX), com uma parcela lançada por mês. A última parcela absorve o arredondamento. Ao excluir, é possível apagar só uma parcela ou todas as que estão em meses abertos.
@@ -31,7 +32,7 @@ Aplicação web de finanças pessoais em HTML, CSS e JavaScript puros (sem build
 - **IA (Gemini):** descreva a transação em linguagem natural ("gastei 45 no mercado ontem no PIX") e o formulário é preenchido para revisão.
 
 ### Salário (renda fixa)
-- Em Configurações, defina valor e dia de recebimento. O salário é lançado automaticamente todo mês a partir do mês da configuração.
+- Em Ajustes, defina valor e dia de recebimento. O salário é lançado automaticamente todo mês a partir do mês da configuração.
 - Alterar valor ou dia atualiza o mês atual e os seguintes. Meses passados, fechados ou com o salário editado à mão não mudam.
 - Excluir o salário de um mês é definitivo para aquele mês: ele não é recriado.
 
@@ -54,7 +55,7 @@ Aplicação web de finanças pessoais em HTML, CSS e JavaScript puros (sem build
 ## IA (Gemini)
 
 - **Produção (Vercel):** defina `GEMINI_API_KEY` em *Settings › Environment Variables*. A chave fica só no servidor (`api/ia.js`).
-- **Chave pessoal (opcional):** em Configurações. Usada localmente e como alternativa se o endpoint não existir. Fica salva apenas no navegador.
+- **Chave pessoal (opcional):** em Ajustes. Usada localmente e como alternativa se o endpoint não existir. Fica salva apenas no navegador.
 - **Proteção do endpoint:** só aceita chamadas do próprio site e tem limite por IP em memória (por instância). Para um limite global, crie uma regra de *Rate Limiting* para `/api/ia` no Firewall da Vercel.
 
 ## Estrutura

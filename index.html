@@ -3,250 +3,279 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0D1120" />
   <title>Minhas Finanças — Controle Pessoal</title>
   <link rel="icon" href="favicon.png" type="image/png" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="app">
-    <!-- ===== Sidebar ===== -->
+    <!-- ===== Barra lateral (computador) ===== -->
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-icon"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></div>
         <div class="brand-text">
           <strong>Minhas Finanças</strong>
-          <span>Controle pessoal</span>
+          <span>Seu dinheiro, mês a mês</span>
         </div>
       </div>
 
-      <nav class="nav">
+      <button id="btn-nova-transacao" class="btn btn-primary btn-lg btn-block">
+        <i class="fa-solid fa-plus" aria-hidden="true"></i> Novo lançamento
+      </button>
+
+      <nav class="nav" aria-label="Menu principal">
         <button class="nav-item active" data-section="dashboard">
-          <span class="nav-icon"><i class="fa-solid fa-chart-column" aria-hidden="true"></i></span> Dashboard
+          <i class="fa-solid fa-house nav-icon" aria-hidden="true"></i> Início
         </button>
         <button class="nav-item" data-section="transacoes">
-          <span class="nav-icon"><i class="fa-solid fa-money-bill-wave" aria-hidden="true"></i></span> Transações
+          <i class="fa-solid fa-list-ul nav-icon" aria-hidden="true"></i> Extrato
         </button>
         <button class="nav-item" data-section="investimentos">
-          <span class="nav-icon"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span> Investimentos
+          <i class="fa-solid fa-arrow-trend-up nav-icon" aria-hidden="true"></i> Investimentos
         </button>
         <button class="nav-item" data-section="relatorios">
-          <span class="nav-icon"><i class="fa-solid fa-file-lines" aria-hidden="true"></i></span> Relatórios
+          <i class="fa-solid fa-chart-column nav-icon" aria-hidden="true"></i> Relatórios
         </button>
         <button class="nav-item" data-section="configuracoes">
-          <span class="nav-icon"><i class="fa-solid fa-gear" aria-hidden="true"></i></span> Configurações
+          <i class="fa-solid fa-sliders nav-icon" aria-hidden="true"></i> Ajustes
         </button>
       </nav>
 
-      <div class="sidebar-footer">
-        <div class="sidebar-summary">
-          <div class="summary-row summary-row-salario">
-            <span class="summary-label">Salário mensal</span>
-            <span class="summary-value summary-value-salario" id="sidebar-salario">R$ 0,00</span>
-          </div>
-          <div class="summary-row">
-            <span class="summary-label">Livre p/ gastar</span>
-            <span class="summary-value" id="sidebar-livre">R$ 0,00</span>
-          </div>
-          <div class="summary-row">
-            <span class="summary-label">Investimentos</span>
-            <span class="summary-value" id="sidebar-investimentos">R$ 0,00</span>
-          </div>
-        </div>
-        <button id="btn-nova-transacao" class="btn btn-primary btn-block">+ Nova transação</button>
+      <div class="sidebar-resumo">
+        <span class="sidebar-resumo-rotulo">Guardado em investimentos</span>
+        <strong class="sidebar-resumo-valor" id="sidebar-investimentos">R$ 0,00</strong>
+        <span class="sidebar-resumo-sub" id="sidebar-rendimento">&nbsp;</span>
       </div>
     </aside>
 
-    <!-- ===== Menu inferior (mobile) ===== -->
+    <!-- ===== Menu inferior (celular) ===== -->
     <nav class="bottom-nav" aria-label="Menu principal">
       <button class="bottom-nav-item active" data-section="dashboard">
-        <span class="bottom-nav-icon"><i class="fa-solid fa-chart-column" aria-hidden="true"></i></span>
-        <span class="bottom-nav-label">Dashboard</span>
+        <i class="fa-solid fa-house" aria-hidden="true"></i><span>Início</span>
       </button>
       <button class="bottom-nav-item" data-section="transacoes">
-        <span class="bottom-nav-icon"><i class="fa-solid fa-money-bill-wave" aria-hidden="true"></i></span>
-        <span class="bottom-nav-label">Transações</span>
+        <i class="fa-solid fa-list-ul" aria-hidden="true"></i><span>Extrato</span>
+      </button>
+      <button id="btn-nova-transacao-mobile" class="bottom-nav-add" aria-label="Novo lançamento" title="Novo lançamento">
+        <i class="fa-solid fa-plus" aria-hidden="true"></i>
       </button>
       <button class="bottom-nav-item" data-section="investimentos">
-        <span class="bottom-nav-icon"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>
-        <span class="bottom-nav-label">Investir</span>
+        <i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i><span>Investir</span>
       </button>
-      <button class="bottom-nav-item" data-section="relatorios">
-        <span class="bottom-nav-icon"><i class="fa-solid fa-file-lines" aria-hidden="true"></i></span>
-        <span class="bottom-nav-label">Relatórios</span>
-      </button>
-      <button class="bottom-nav-item" data-section="configuracoes">
-        <span class="bottom-nav-icon"><i class="fa-solid fa-gear" aria-hidden="true"></i></span>
-        <span class="bottom-nav-label">Config</span>
+      <button class="bottom-nav-item" id="btn-mais" aria-haspopup="dialog">
+        <i class="fa-solid fa-bars" aria-hidden="true"></i><span>Mais</span>
       </button>
     </nav>
 
-    <button id="btn-nova-transacao-mobile" class="mobile-fab" aria-label="Nova transação" title="Nova transação">
-      <i class="fa-solid fa-plus" aria-hidden="true"></i>
-    </button>
-
-    <!-- ===== Main ===== -->
+    <!-- ===== Conteúdo ===== -->
     <main class="main">
-      <!-- Header com seletor de mês -->
       <header class="topbar">
-        <h1 id="section-title">Dashboard</h1>
+        <div class="topbar-titulo">
+          <h1 id="section-title">Início</h1>
+          <p id="section-subtitle" class="topbar-sub">Um resumo simples de como está o seu mês.</p>
+        </div>
         <div class="month-selector">
-          <button id="mes-anterior" class="btn btn-ghost" title="Mês anterior" aria-label="Mês anterior">‹</button>
-          <span class="mes-atual-wrap">
-            <span id="mes-status-dot" class="mes-status-dot" aria-hidden="true"></span>
-            <span id="mes-atual-label" class="mes-atual-label" aria-live="polite"></span>
-          </span>
-          <button id="mes-proximo" class="btn btn-ghost" title="Próximo mês" aria-label="Próximo mês">›</button>
-          <button id="mes-fechar" class="btn btn-outline" title="Encerrar o mês selecionado e ir para o próximo">Fechar mês</button>
-          <button id="mes-hoje" class="btn btn-ghost">Hoje</button>
+          <div class="mes-pill">
+            <button id="mes-anterior" class="mes-seta" aria-label="Mês anterior" title="Mês anterior">
+              <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+            </button>
+            <div class="mes-centro">
+              <span id="mes-atual-label" class="mes-atual-label" aria-live="polite"></span>
+              <span class="mes-status">
+                <span id="mes-status-dot" class="mes-status-dot" aria-hidden="true"></span>
+                <span id="mes-status-texto"></span>
+              </span>
+            </div>
+            <button id="mes-proximo" class="mes-seta" aria-label="Próximo mês" title="Próximo mês">
+              <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+            </button>
+          </div>
+          <button id="mes-hoje" class="btn btn-ghost btn-sm hidden">Voltar para hoje</button>
+          <button id="mes-fechar" class="btn btn-outline">
+            <i class="fa-solid fa-lock" aria-hidden="true"></i><span class="btn-texto" id="mes-fechar-texto">Conferir e fechar mês</span>
+          </button>
         </div>
       </header>
 
-      <!-- ===== Seção: Dashboard ===== -->
+      <!-- ===== Início ===== -->
       <section id="section-dashboard" class="section active">
-        <div class="cards-grid">
-          <div class="card stat-card">
-            <div class="stat-label">Salário do mês</div>
-            <div class="stat-value salario" id="stat-salario">R$ 0,00</div>
-            <div class="stat-sub" id="stat-salario-sub">renda fixa</div>
+        <div class="card boas-vindas hidden" id="dash-boas-vindas">
+          <div class="boas-vindas-texto">
+            <h2>Vamos começar?</h2>
+            <p>Informe seu salário para ele ser lançado sozinho todo mês e registre seus gastos conforme eles acontecem.</p>
           </div>
-          <div class="card stat-card">
-            <div class="stat-label">Ganhos do mês</div>
-            <div class="stat-value positive" id="stat-ganhos">R$ 0,00</div>
-            <div class="stat-sub" id="stat-ganhos-sub">incluindo salário</div>
-          </div>
-          <div class="card stat-card">
-            <div class="stat-label">Despesas do mês</div>
-            <div class="stat-value negative" id="stat-despesas">R$ 0,00</div>
-            <div class="stat-sub" id="stat-despesas-sub">&nbsp;</div>
-          </div>
-          <div class="card stat-card">
-            <div class="stat-label">Investido no mês</div>
-            <div class="stat-value invest" id="stat-investido">R$ 0,00</div>
-            <div class="stat-sub" id="stat-investido-sub">&nbsp;</div>
-          </div>
-          <div class="card stat-card stat-card-saldo">
-            <span class="stat-badge" id="stat-saldo-badge">Positivo</span>
-            <div class="stat-label">Saldo Livre</div>
-            <div class="stat-value" id="stat-saldo">R$ 0,00</div>
-            <div class="stat-sub" id="stat-saldo-sub">ganhos − despesas − investimentos</div>
+          <div class="boas-vindas-acoes">
+            <button class="btn btn-primary" data-goto="configuracoes">Informar salário</button>
+            <button class="btn btn-outline" id="btn-nova-transacao-4">Registrar um gasto</button>
           </div>
         </div>
+
+        <section class="card hero" aria-labelledby="hero-titulo">
+          <div class="hero-principal">
+            <h2 id="hero-titulo" class="hero-rotulo">Sobra deste mês</h2>
+            <strong class="hero-valor" id="hero-sobra">R$ 0,00</strong>
+            <p class="hero-frase" id="hero-frase">&nbsp;</p>
+            <div class="barra-mes" id="hero-barra" role="img" aria-label="">
+              <span class="barra-gasto" id="hero-barra-gasto"></span>
+              <span class="barra-guardado" id="hero-barra-guardado"></span>
+              <span class="barra-sobra" id="hero-barra-sobra"></span>
+            </div>
+            <div class="barra-legenda" aria-hidden="true">
+              <span><i class="leg leg-gasto"></i>Gasto</span>
+              <span><i class="leg leg-guardado"></i>Guardado</span>
+              <span><i class="leg leg-sobra"></i>Sobrando</span>
+            </div>
+          </div>
+          <div class="hero-linhas">
+            <div class="hero-linha">
+              <span class="icone-redondo icone-entrada"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></span>
+              <div class="hero-linha-texto">
+                <span class="hero-linha-titulo">Entrou</span>
+                <span class="hero-linha-sub" id="hero-entrou-sub">&nbsp;</span>
+              </div>
+              <strong class="hero-linha-valor valor-entrada" id="hero-entrou">R$ 0,00</strong>
+            </div>
+            <div class="hero-linha">
+              <span class="icone-redondo icone-saida"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></span>
+              <div class="hero-linha-texto">
+                <span class="hero-linha-titulo">Saiu</span>
+                <span class="hero-linha-sub" id="hero-saiu-sub">&nbsp;</span>
+              </div>
+              <strong class="hero-linha-valor valor-saida" id="hero-saiu">R$ 0,00</strong>
+            </div>
+            <div class="hero-linha">
+              <span class="icone-redondo icone-guardado"><i class="fa-solid fa-piggy-bank" aria-hidden="true"></i></span>
+              <div class="hero-linha-texto">
+                <span class="hero-linha-titulo">Guardado</span>
+                <span class="hero-linha-sub" id="hero-guardado-sub">&nbsp;</span>
+              </div>
+              <strong class="hero-linha-valor valor-guardado" id="hero-guardado">R$ 0,00</strong>
+            </div>
+          </div>
+        </section>
 
         <div class="dash-grid">
-          <div class="card">
+          <section class="card" aria-labelledby="dash-cat-titulo">
             <div class="card-header">
-              <h2>Despesas por categoria</h2>
-              <span class="muted" id="dash-mes-label"></span>
+              <h2 id="dash-cat-titulo">Para onde foi o dinheiro</h2>
+              <span class="muted" id="dash-total-gasto"></span>
             </div>
-            <div class="chart-wrap chart-wrap-categorias"><canvas id="chart-categorias"></canvas></div>
-          </div>
-          <div class="card">
+            <div class="cat-bars-wrap" id="dash-categorias"></div>
+          </section>
+          <section class="card" aria-labelledby="dash-ult-titulo">
             <div class="card-header">
-              <h2>Últimas transações do mês</h2>
-              <button class="btn btn-ghost" data-goto="transacoes">Ver todas ›</button>
+              <h2 id="dash-ult-titulo">Últimos lançamentos</h2>
+              <button class="btn-link" data-goto="transacoes">Ver extrato completo</button>
             </div>
-            <div class="tx-list-wrap" id="dash-ultimas"></div>
-          </div>
+            <div id="dash-ultimas"></div>
+          </section>
         </div>
       </section>
 
-      <!-- ===== Seção: Transações ===== -->
+      <!-- ===== Extrato ===== -->
       <section id="section-transacoes" class="section">
-        <div class="toolbar">
-          <div class="filters">
-            <input type="search" id="filtro-busca" placeholder="Buscar descrição…" />
-            <div class="filters-row">
-              <select id="filtro-tipo">
-                <option value="">Todos os tipos</option>
-                <option value="ganho">Ganhos</option>
-                <option value="despesa">Despesas</option>
-                <option value="investimento">Investimentos</option>
-              </select>
-              <select id="filtro-categoria">
-                <option value="">Todas as categorias</option>
-              </select>
-            </div>
+        <div class="extrato-filtros">
+          <label class="busca">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <span class="sr-only">Buscar no extrato</span>
+            <input type="search" id="filtro-busca" placeholder="Buscar por descrição" />
+          </label>
+          <div class="chips-filtro" role="group" aria-label="Mostrar">
+            <button type="button" class="chip-filtro active" data-filtro-tipo="" aria-pressed="true">Tudo</button>
+            <button type="button" class="chip-filtro" data-filtro-tipo="despesa" aria-pressed="false">Gastos</button>
+            <button type="button" class="chip-filtro" data-filtro-tipo="ganho" aria-pressed="false">Entradas</button>
+            <button type="button" class="chip-filtro" data-filtro-tipo="investimento" aria-pressed="false">Investimentos</button>
           </div>
-          <button class="btn btn-primary toolbar-action-desktop" id="btn-nova-transacao-2">+ Nova transação</button>
+          <input type="hidden" id="filtro-tipo" value="" />
+          <label class="filtro-categoria">
+            <span>Categoria</span>
+            <select id="filtro-categoria">
+              <option value="">Todas</option>
+            </select>
+          </label>
         </div>
 
-        <div class="card">
-          <div class="tx-mobile-list" id="transacoes-lista-mobile"></div>
-          <div class="table-wrap tx-table-desktop">
-            <table>
-              <thead>
-                <tr>
-                  <th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th>
-                  <th class="right">Valor</th><th class="right">Ações</th>
-                </tr>
-              </thead>
-              <tbody id="tabela-transacoes"></tbody>
-            </table>
+        <div class="resumo-faixa">
+          <div class="mini-card">
+            <span>Entrou</span>
+            <strong class="valor-entrada" id="ext-entrou">R$ 0,00</strong>
           </div>
+          <div class="mini-card">
+            <span>Saiu</span>
+            <strong class="valor-saida" id="ext-saiu">R$ 0,00</strong>
+          </div>
+          <div class="mini-card">
+            <span>Guardado</span>
+            <strong class="valor-guardado" id="ext-guardado">R$ 0,00</strong>
+          </div>
+        </div>
+
+        <div class="card extrato-card">
+          <div id="transacoes-lista"></div>
           <div id="transacoes-vazio" class="empty-state hidden">
-            <p>Nenhuma transação neste mês.</p>
-            <button class="btn btn-primary" id="btn-nova-transacao-3">+ Adicionar primeira transação</button>
+            <i class="fa-solid fa-receipt empty-icone" aria-hidden="true"></i>
+            <p id="transacoes-vazio-msg">Nenhum lançamento neste mês.</p>
+            <button class="btn btn-primary" id="btn-nova-transacao-3"><i class="fa-solid fa-plus" aria-hidden="true"></i> Novo lançamento</button>
           </div>
-          <div class="table-footer">
-            <span id="transacoes-resumo" class="muted"></span>
-          </div>
+          <p id="transacoes-resumo" class="extrato-rodape muted"></p>
         </div>
       </section>
 
-      <!-- ===== Seção: Investimentos ===== -->
+      <!-- ===== Investimentos ===== -->
       <section id="section-investimentos" class="section">
-        <div class="cards-grid">
+        <div class="metricas">
           <div class="card stat-card">
-            <div class="stat-label">Patrimônio investido</div>
-            <div class="stat-value invest" id="inv-total">R$ 0,00</div>
-            <div class="stat-sub">aportes − resgates + rendimento estimado</div>
+            <div class="stat-label">Total investido hoje</div>
+            <div class="stat-value valor-guardado" id="inv-total">R$ 0,00</div>
+            <div class="stat-sub">O que você aplicou, menos retiradas, mais o rendimento estimado</div>
           </div>
           <div class="card stat-card">
-            <div class="stat-label">Aportes no mês</div>
-            <div class="stat-value invest" id="inv-mes">R$ 0,00</div>
+            <div class="stat-label">Aplicado neste mês</div>
+            <div class="stat-value" id="inv-mes">R$ 0,00</div>
             <div class="stat-sub" id="inv-mes-sub">&nbsp;</div>
           </div>
           <div class="card stat-card">
-            <div class="stat-label">Rendimento acumulado</div>
-            <div class="stat-value positive" id="inv-rendimento-acumulado">R$ 0,00</div>
-            <div class="stat-sub">estimado · já incluído no patrimônio</div>
+            <div class="stat-label">Já rendeu</div>
+            <div class="stat-value valor-entrada" id="inv-rendimento-acumulado">R$ 0,00</div>
+            <div class="stat-sub">Estimativa, já somada ao total</div>
           </div>
           <div class="card stat-card">
-            <div class="stat-label">Rendimento mensal</div>
-            <div class="stat-value invest" id="inv-rendimento">R$ 0,00</div>
-            <div class="stat-sub">por mês · com base na % informada</div>
+            <div class="stat-label">Rende por mês</div>
+            <div class="stat-value" id="inv-rendimento">R$ 0,00</div>
+            <div class="stat-sub">Estimativa com a % que você informou</div>
           </div>
         </div>
 
         <div class="dash-grid">
-          <div class="card">
+          <section class="card" aria-labelledby="inv-dist-titulo">
             <div class="card-header">
               <div>
-                <h2>Distribuição da carteira</h2>
-                <p class="card-subtitle">% do patrimônio em cada investimento</p>
+                <h2 id="inv-dist-titulo">Como está dividido</h2>
+                <p class="card-subtitle">Quanto cada investimento representa do total</p>
               </div>
             </div>
-            <div class="chart-wrap chart-wrap-investimentos"><canvas id="chart-inv-tipos"></canvas></div>
-          </div>
-          <div class="card inv-form-card">
+            <div class="chart-wrap chart-wrap-investimentos"><canvas id="chart-inv-tipos" aria-label="Gráfico da divisão dos investimentos" role="img"></canvas></div>
+          </section>
+          <section class="card inv-form-card" aria-labelledby="inv-novo-titulo">
             <div class="card-header">
               <div>
-                <h2>Novo investimento</h2>
-                <p class="card-subtitle">Adicione um projeto à sua carteira</p>
+                <h2 id="inv-novo-titulo">Novo investimento</h2>
+                <p class="card-subtitle">Registre uma aplicação. Ela fica salva no mês selecionado.</p>
               </div>
             </div>
             <form id="form-investimento-carteira">
               <div class="form-group">
-                <label for="inv-projeto-nome">Nome do projeto</label>
-                <input type="text" id="inv-projeto-nome" required placeholder="Ex.: CDB Banco X, PETR4…" />
+                <label for="inv-projeto-nome">Nome do investimento</label>
+                <input type="text" id="inv-projeto-nome" required placeholder="Ex.: CDB do banco, Tesouro Selic" />
               </div>
               <div class="form-group">
-                <label for="inv-projeto-ativo">Tipo de ativo</label>
+                <label for="inv-projeto-ativo">Tipo</label>
                 <select id="inv-projeto-ativo" required>
                   <option>Renda Fixa</option>
                   <option>Ações</option>
@@ -260,224 +289,244 @@
               <div class="form-row">
                 <div class="form-group">
                   <label for="inv-projeto-valor">Valor aplicado (R$)</label>
-                  <input type="number" id="inv-projeto-valor" required min="0.01" step="0.01" placeholder="0,00" />
+                  <input type="number" id="inv-projeto-valor" required min="0.01" step="0.01" inputmode="decimal" placeholder="0,00" />
                 </div>
                 <div class="form-group">
-                  <label for="inv-projeto-rendimento">% ao mês</label>
-                  <input type="number" id="inv-projeto-rendimento" required min="0" step="0.01" placeholder="0,00" />
+                  <label for="inv-projeto-rendimento">Rendimento por mês (%)</label>
+                  <input type="number" id="inv-projeto-rendimento" required min="0" step="0.01" inputmode="decimal" placeholder="Ex.: 1" aria-describedby="inv-rendimento-ajuda" />
                 </div>
               </div>
-              <button type="submit" class="btn btn-primary btn-block">Adicionar à carteira</button>
+              <p class="ajuda" id="inv-rendimento-ajuda">Use 1 para 1% ao mês. Se não souber, use 0.</p>
+              <button type="submit" class="btn btn-primary btn-block">Adicionar investimento</button>
             </form>
-          </div>
+          </section>
         </div>
 
-        <div class="card">
+        <section class="card" aria-labelledby="inv-lista-titulo">
           <div class="card-header">
-            <h2>Carteira acumulada</h2>
+            <h2 id="inv-lista-titulo">Seus investimentos</h2>
           </div>
           <div class="carteira-list-wrap" id="carteira-lista"></div>
-        </div>
+        </section>
       </section>
 
-      <!-- ===== Seção: Relatórios ===== -->
+      <!-- ===== Relatórios ===== -->
       <section id="section-relatorios" class="section">
         <div class="toolbar">
-          <div class="filters">
-            <label class="muted">Período:</label>
+          <label class="filtro-periodo">
+            <span>Período</span>
             <select id="relatorio-periodo">
               <option value="6">Últimos 6 meses</option>
               <option value="12" selected>Últimos 12 meses</option>
               <option value="24">Últimos 24 meses</option>
               <option value="ano">Ano atual</option>
             </select>
-          </div>
+          </label>
           <div class="export-buttons">
-            <button class="btn btn-outline" id="btn-export-csv">⬇ Exportar CSV</button>
-            <button class="btn btn-outline" id="btn-export-json">⬇ Exportar JSON (backup)</button>
-            <label class="btn btn-outline" for="input-import-json">⬆ Importar backup</label>
+            <button class="btn btn-outline" id="btn-export-csv"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> Planilha (CSV)</button>
+            <button class="btn btn-outline" id="btn-export-json"><i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i> Fazer backup</button>
+            <label class="btn btn-outline" for="input-import-json"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Restaurar backup</label>
             <input type="file" id="input-import-json" accept=".json" hidden />
           </div>
         </div>
 
-        <div class="cards-grid rel-cards-grid">
-          <div class="card stat-card rel-card rel-entrou">
+        <div class="metricas">
+          <div class="card stat-card">
             <div class="stat-label">Entrou</div>
-            <div class="stat-value" id="rel-entrou">R$ 0,00</div>
+            <div class="stat-value valor-entrada" id="rel-entrou">R$ 0,00</div>
             <div class="stat-sub" id="rel-entrou-sub">&nbsp;</div>
           </div>
-          <div class="card stat-card rel-card rel-saiu">
+          <div class="card stat-card">
             <div class="stat-label">Saiu</div>
-            <div class="stat-value" id="rel-saiu">R$ 0,00</div>
+            <div class="stat-value valor-saida" id="rel-saiu">R$ 0,00</div>
             <div class="stat-sub" id="rel-saiu-sub">&nbsp;</div>
           </div>
-          <div class="card stat-card rel-card rel-investido">
-            <div class="stat-label">Investido</div>
-            <div class="stat-value" id="rel-investido">R$ 0,00</div>
+          <div class="card stat-card">
+            <div class="stat-label">Guardado</div>
+            <div class="stat-value valor-guardado" id="rel-investido">R$ 0,00</div>
             <div class="stat-sub" id="rel-investido-sub">&nbsp;</div>
           </div>
-          <div class="card stat-card rel-card rel-sobrou">
+          <div class="card stat-card">
             <div class="stat-label">Sobrou</div>
             <div class="stat-value" id="rel-sobrou">R$ 0,00</div>
             <div class="stat-sub" id="rel-sobrou-sub">&nbsp;</div>
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-header"><h2>Despesas por categoria (período)</h2></div>
+        <section class="card" aria-labelledby="rel-cat-titulo">
+          <div class="card-header"><h2 id="rel-cat-titulo">Gastos por categoria no período</h2></div>
           <div class="cat-bars-wrap" id="rel-categorias-barras"></div>
-        </div>
+        </section>
 
-        <div class="card">
-          <div class="card-header"><h2>Resumo mensal do período</h2></div>
+        <section class="card" aria-labelledby="rel-resumo-titulo">
+          <div class="card-header"><h2 id="rel-resumo-titulo">Mês a mês</h2></div>
 
-          <!-- Visual mobile: um mês por vez -->
+          <!-- Celular: um mês por vez -->
           <div class="rel-mes-mobile" id="rel-mes-mobile">
             <div class="rel-mes-selector">
-              <button type="button" id="rel-mes-anterior" class="btn btn-ghost" title="Mês anterior">‹</button>
-              <span class="mes-atual-wrap">
-                <span id="rel-mes-status-dot" class="mes-status-dot" aria-hidden="true"></span>
+              <button type="button" id="rel-mes-anterior" class="mes-seta" aria-label="Mês anterior"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+              <span class="mes-centro">
                 <span id="rel-mes-label" class="mes-atual-label"></span>
+                <span class="mes-status"><span id="rel-mes-status-dot" class="mes-status-dot" aria-hidden="true"></span></span>
               </span>
-              <button type="button" id="rel-mes-proximo" class="btn btn-ghost" title="Próximo mês">›</button>
+              <button type="button" id="rel-mes-proximo" class="mes-seta" aria-label="Próximo mês"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
             </div>
             <div class="rel-mes-rows" id="rel-mes-detalhe"></div>
           </div>
 
-          <!-- Visual desktop: tabela completa -->
+          <!-- Computador: tabela completa -->
           <div class="table-wrap rel-resumo-desktop">
             <table>
               <thead>
                 <tr>
-                  <th>Mês</th><th class="right">Salário</th><th class="right">Outros ganhos</th><th class="right">Despesas</th>
-                  <th class="right">Investido</th><th class="right">Saldo</th><th class="right">Taxa de poupança</th>
+                  <th>Mês</th><th class="right">Salário</th><th class="right">Outras entradas</th><th class="right">Gastos</th>
+                  <th class="right">Guardado</th><th class="right">Sobra</th><th class="right">Quanto guardou</th>
                 </tr>
               </thead>
               <tbody id="tabela-resumo-mensal"></tbody>
             </table>
           </div>
-        </div>
+        </section>
       </section>
 
-      <!-- ===== Seção: Configurações ===== -->
+      <!-- ===== Ajustes ===== -->
       <section id="section-configuracoes" class="section">
-        <div class="card narrow">
-          <div class="card-header"><h2>Salário mensal</h2></div>
-          <p class="muted">Seu salário é uma renda fixa: ao salvar um valor, ele passa a ser lançado automaticamente como ganho todo mês. Mudanças de valor ou dia atualizam o mês atual e os seguintes (meses passados, fechados ou editados à mão não mudam).</p>
+        <section class="card narrow" aria-labelledby="cfg-salario-titulo">
+          <div class="card-header"><h2 id="cfg-salario-titulo">Salário</h2></div>
+          <p class="muted">Informe quanto você recebe por mês. O app lança o salário sozinho, todo mês, no dia escolhido. Se o valor mudar, a mudança vale deste mês em diante.</p>
           <div class="form-row">
             <div class="form-group">
               <label for="config-salario">Valor do salário (R$)</label>
-              <input type="number" id="config-salario" min="0" step="0.01" placeholder="0,00" />
+              <input type="number" id="config-salario" min="0" step="0.01" inputmode="decimal" placeholder="0,00" />
             </div>
             <div class="form-group">
-              <label for="config-dia-salario">Dia do recebimento</label>
+              <label for="config-dia-salario">Dia em que recebe</label>
               <input type="number" id="config-dia-salario" min="1" max="28" value="5" />
             </div>
           </div>
-          <p class="muted" id="config-salario-info">&nbsp;</p>
-          <button class="btn btn-primary" id="btn-salvar-config">Salvar configurações</button>
-        </div>
+          <p class="ajuda" id="config-salario-info">&nbsp;</p>
+          <button class="btn btn-primary" id="btn-salvar-config">Salvar salário</button>
+        </section>
 
-        <div class="card narrow">
-          <div class="card-header"><h2>Categorias de despesa</h2></div>
-          <p class="muted">Adicione ou remova categorias usadas nas transações.</p>
+        <section class="card narrow" aria-labelledby="cfg-cat-titulo">
+          <div class="card-header"><h2 id="cfg-cat-titulo">Categorias de gasto</h2></div>
+          <p class="muted">As categorias aparecem na hora de registrar um gasto.</p>
           <div id="lista-categorias" class="chips"></div>
-          <div class="form-row">
-            <input type="text" id="nova-categoria" placeholder="Nova categoria…" />
+          <div class="form-row form-row-inline">
+            <label class="sr-only" for="nova-categoria">Nova categoria</label>
+            <input type="text" id="nova-categoria" placeholder="Nova categoria" />
             <button class="btn btn-outline" id="btn-add-categoria">Adicionar</button>
           </div>
-        </div>
+        </section>
 
-        <div class="card narrow">
-          <div class="card-header"><h2>Assistente de IA (Gemini)</h2></div>
-          <p class="muted">
-            O assistente de IA já vem integrado ao app: crie transações escrevendo em linguagem natural
-            (ex.: “gastei 45 no mercado ontem no PIX”), sem precisar configurar nada.
-          </p>
-          <p class="muted">
-            Opcionalmente, você pode usar sua própria chave da API do Google Gemini — ela passa a ser usada
-            como alternativa se o serviço integrado estiver indisponível. Gere uma chave gratuita em
-            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.
-          </p>
-          <div class="form-group">
-            <label for="config-gemini-key">Chave da API do Gemini (opcional)</label>
-            <input type="password" id="config-gemini-key" placeholder="AIza..." autocomplete="off" />
-          </div>
-          <p class="muted">A chave fica salva apenas neste navegador e não é incluída nos backups exportados.</p>
-          <button class="btn btn-primary" id="btn-salvar-gemini">Salvar chave</button>
-        </div>
+        <section class="card narrow" aria-labelledby="cfg-ia-titulo">
+          <div class="card-header"><h2 id="cfg-ia-titulo">Assistente de IA</h2></div>
+          <p class="muted">Registre lançamentos escrevendo uma frase, como “gastei 45 no mercado ontem no PIX”. O assistente já vem pronto para usar.</p>
+          <details class="detalhes">
+            <summary>Usar minha própria chave do Gemini (opcional)</summary>
+            <p class="muted">Ela é usada quando o assistente integrado não estiver disponível. Gere uma chave gratuita em
+              <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</p>
+            <div class="form-group">
+              <label for="config-gemini-key">Chave da API do Gemini</label>
+              <input type="password" id="config-gemini-key" placeholder="Cole a chave aqui" autocomplete="off" />
+            </div>
+            <p class="ajuda">A chave fica salva apenas neste navegador e não vai junto nos backups.</p>
+            <button class="btn btn-outline" id="btn-salvar-gemini">Salvar chave</button>
+          </details>
+        </section>
 
-        <div class="card narrow danger-zone">
-          <div class="card-header"><h2>Dados</h2></div>
-          <p class="muted">Seus dados ficam salvos apenas neste navegador (localStorage). Faça backups regulares em Relatórios › Exportar JSON.</p>
+        <section class="card narrow danger-zone" aria-labelledby="cfg-dados-titulo">
+          <div class="card-header"><h2 id="cfg-dados-titulo">Seus dados</h2></div>
+          <p class="muted">Tudo fica salvo apenas neste navegador. Faça backups de vez em quando em Relatórios › Fazer backup.</p>
           <button class="btn btn-danger" id="btn-apagar-tudo">Apagar todos os dados</button>
-        </div>
+        </section>
       </section>
     </main>
   </div>
 
-  <!-- ===== Modal de transação ===== -->
+  <!-- ===== Folha "Mais" (celular) ===== -->
+  <div class="modal-overlay sheet-overlay hidden" id="sheet-mais">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-mais-titulo">
+      <div class="sheet-alca" aria-hidden="true"></div>
+      <h2 id="sheet-mais-titulo" class="sheet-titulo">Mais opções</h2>
+      <button class="sheet-item" data-section="relatorios">
+        <i class="fa-solid fa-chart-column" aria-hidden="true"></i>
+        <span><strong>Relatórios</strong><small>Mês a mês, gastos por categoria e backup</small></span>
+      </button>
+      <button class="sheet-item" data-section="configuracoes">
+        <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+        <span><strong>Ajustes</strong><small>Salário, categorias e assistente de IA</small></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== Novo lançamento ===== -->
   <div class="modal-overlay hidden" id="modal-transacao">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+    <div class="modal modal-lancamento" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
       <div class="modal-header">
-        <h2 id="modal-titulo">Nova transação</h2>
-        <button type="button" class="btn btn-ghost" id="modal-fechar" aria-label="Fechar">✕</button>
+        <h2 id="modal-titulo">Novo lançamento</h2>
+        <button type="button" class="btn-fechar" id="modal-fechar" aria-label="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
       </div>
       <form id="form-transacao">
         <input type="hidden" id="tx-id" />
-        <div class="ia-nl-wrap hidden" id="ia-nl-wrap">
-          <label class="ia-nl-label" for="tx-nl-texto">
-            <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Descreva a transação
+
+        <div class="segmento" id="tx-tipo-toggle" role="radiogroup" aria-label="Tipo de lançamento">
+          <label class="segmento-opcao seg-gasto">
+            <input type="radio" name="tx-tipo" value="despesa" checked />
+            <span><i class="fa-solid fa-arrow-up" aria-hidden="true"></i> Gastei</span>
           </label>
-          <div class="ia-nl-row">
-            <input type="text" id="tx-nl-texto" placeholder="Ex.: gastei 45 no mercado ontem no PIX" autocomplete="off" />
-            <button type="button" class="btn btn-outline" id="btn-ia-preencher" title="Preencher o formulário com IA" aria-label="Preencher o formulário com IA">
-              <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
-            </button>
-          </div>
-          <p class="muted ia-nl-status hidden" id="ia-nl-status" aria-live="polite">&nbsp;</p>
-        </div>
-        <div class="tipo-toggle" id="tx-tipo-toggle">
-          <label><input type="radio" name="tx-tipo" value="ganho" /> <span class="tag tag-ganho">Ganho</span></label>
-          <label><input type="radio" name="tx-tipo" value="despesa" checked /> <span class="tag tag-despesa">Despesa</span></label>
+          <label class="segmento-opcao seg-entrada">
+            <input type="radio" name="tx-tipo" value="ganho" />
+            <span><i class="fa-solid fa-arrow-down" aria-hidden="true"></i> Recebi</span>
+          </label>
           <input type="radio" name="tx-tipo" value="investimento" class="hidden" id="tx-tipo-investimento" />
         </div>
+
         <div class="form-group">
-          <label for="tx-descricao">Descrição</label>
-          <input type="text" id="tx-descricao" required placeholder="Ex.: Supermercado, Uber, fatura..." />
+          <label for="tx-valor">Quanto?</label>
+          <div class="campo-valor">
+            <span aria-hidden="true">R$</span>
+            <input type="number" id="tx-valor" required min="0.01" step="0.01" inputmode="decimal" placeholder="0,00" />
+          </div>
         </div>
+
         <div class="form-row form-row-valor-data">
           <div class="form-group">
-            <label for="tx-valor">Valor (R$)</label>
-            <input type="number" id="tx-valor" required min="0.01" step="0.01" placeholder="0,00" />
+            <label for="tx-descricao">O que foi?</label>
+            <input type="text" id="tx-descricao" required placeholder="Ex.: Supermercado" />
           </div>
           <div class="form-group">
-            <label for="tx-data">Data</label>
+            <label for="tx-data">Quando?</label>
             <input type="date" id="tx-data" required />
           </div>
         </div>
+
         <div class="form-group" id="grupo-categoria">
-          <label>Categoria</label>
+          <span class="rotulo" id="rotulo-categoria">Categoria</span>
           <input type="hidden" id="tx-categoria" value="" />
-          <div class="cat-grid" id="tx-categoria-grid"></div>
+          <div class="cat-grid" id="tx-categoria-grid" role="group" aria-labelledby="rotulo-categoria"></div>
         </div>
-        <div class="form-row" id="grupo-forma-pagamento">
+
+        <div id="grupo-forma-pagamento">
           <div class="form-group">
-            <label for="tx-forma-pagamento">Forma de pagamento</label>
-            <select id="tx-forma-pagamento">
-              <option value="debito">Débito</option>
-              <option value="credito">Cartão de crédito</option>
-              <option value="pix">PIX</option>
-            </select>
+            <span class="rotulo" id="rotulo-forma">Como pagou?</span>
+            <input type="hidden" id="tx-forma-pagamento" value="debito" />
+            <div class="pills" id="tx-forma-botoes" role="group" aria-labelledby="rotulo-forma">
+              <button type="button" class="pill" data-forma="debito" aria-pressed="true">Débito</button>
+              <button type="button" class="pill" data-forma="credito" aria-pressed="false">Crédito</button>
+              <button type="button" class="pill" data-forma="pix" aria-pressed="false">PIX</button>
+            </div>
           </div>
           <div class="form-group hidden" id="grupo-parcelas">
-            <label for="tx-parcelas">Parcelas</label>
+            <label for="tx-parcelas">Em quantas vezes?</label>
             <select id="tx-parcelas"></select>
           </div>
         </div>
-        <p class="muted hidden" id="tx-info">&nbsp;</p>
+
+        <p class="aviso hidden" id="tx-info">&nbsp;</p>
+
         <div class="form-group hidden" id="grupo-ativo">
-          <label for="tx-ativo">Tipo de ativo</label>
+          <label for="tx-ativo">Tipo de investimento</label>
           <select id="tx-ativo">
             <option>Renda Fixa</option>
             <option>Ações</option>
@@ -489,10 +538,26 @@
           </select>
         </div>
         <label class="checkbox-row hidden" id="grupo-resgate">
-          <input type="checkbox" id="tx-resgate" /> É um resgate (retirada do investimento)
+          <input type="checkbox" id="tx-resgate" /> É uma retirada (resgate) do investimento
         </label>
+
+        <div class="ia-bloco" id="ia-nl-wrap">
+          <button type="button" class="btn-link ia-abrir" id="btn-ia-abrir" aria-expanded="false" aria-controls="ia-nl-painel">
+            <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Preencher escrevendo uma frase
+          </button>
+          <div class="ia-nl-painel hidden" id="ia-nl-painel">
+            <label for="tx-nl-texto">Escreva como você contaria para alguém</label>
+            <div class="ia-nl-row">
+              <input type="text" id="tx-nl-texto" placeholder="Ex.: gastei 45 no mercado ontem no PIX" autocomplete="off" />
+              <button type="button" class="btn btn-primary" id="btn-ia-preencher">Preencher</button>
+            </div>
+            <p class="ia-nl-status hidden" id="ia-nl-status" aria-live="polite">&nbsp;</p>
+          </div>
+        </div>
+
         <div class="modal-actions">
-          <button type="submit" class="btn btn-primary" id="modal-salvar">Salvar</button>
+          <button type="button" class="btn btn-outline" id="modal-cancelar">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="modal-salvar">Salvar gasto</button>
         </div>
       </form>
     </div>

@@ -141,6 +141,25 @@ function transacoesDoMes(transacoes, mesISO) {
   return transacoes.filter((t) => mesDe(t.data) === mesISO);
 }
 
+/** Efeito de um lançamento no saldo do mês (entrada positiva; gasto e aplicação negativos). */
+function efeitoNoSaldo(t) {
+  if (t.tipo === "ganho") return t.valor;
+  if (t.tipo === "despesa") return -t.valor;
+  return -valorInvestimento(t);
+}
+
+/** Agrupa lançamentos por data, do mais recente ao mais antigo, com o total de cada dia. */
+function agruparPorDia(transacoes) {
+  const grupos = new Map();
+  for (const t of [...transacoes].sort((a, b) => b.data.localeCompare(a.data))) {
+    if (!grupos.has(t.data)) grupos.set(t.data, { data: t.data, itens: [], total: 0 });
+    const g = grupos.get(t.data);
+    g.itens.push(t);
+    g.total = Math.round((g.total + efeitoNoSaldo(t)) * 100) / 100;
+  }
+  return [...grupos.values()];
+}
+
 function resumoDoMes(transacoes, mesISO) {
   const txs = transacoesDoMes(transacoes, mesISO);
   let ganhos = 0, despesas = 0, investido = 0, salario = 0;
@@ -461,6 +480,7 @@ if (typeof module !== "undefined" && module.exports) {
     hojeISO, mesDe, dataValida, mesValido, proximoMes, mesesAtras, mesesDeAte, adicionarMeses, mesesEntre,
     limitarDiaSalario, escapeHTML, celulaCSV, linhaCSV,
     valorInvestimento, ehTransacaoSalario, transacoesDoMes, resumoDoMes, despesasPorCategoria, taxaPoupanca,
+    efeitoNoSaldo, agruparPorDia,
     chaveProjeto, posicaoCarteira,
     sincronizarSalarios, aplicarMudancaSalario, gerarParcelas,
     sanitizarDados, validarSugestaoIA,
