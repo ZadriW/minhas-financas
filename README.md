@@ -15,6 +15,7 @@ Aplicação web de finanças pessoais em HTML, CSS e JavaScript puros (sem build
 
 ### Início
 - **Sobra deste mês** em destaque, com a barra Gasto/Guardado/Sobrando e o resumo do que entrou, saiu e foi guardado.
+- **Contas fixas:** o custo base do mês, quanto ele representa da renda, o que já foi pago e o que ainda vence, com a próxima conta e a lista do mês.
 - **Para onde foi o dinheiro:** gastos por categoria, com ícones.
 - Últimos lançamentos agrupados por dia.
 - No primeiro uso, um aviso guia o usuário a informar o salário e registrar o primeiro gasto.
@@ -35,6 +36,12 @@ Aplicação web de finanças pessoais em HTML, CSS e JavaScript puros (sem build
 - Em Ajustes, defina valor e dia de recebimento. O salário é lançado automaticamente todo mês a partir do mês da configuração.
 - Alterar valor ou dia atualiza o mês atual e os seguintes. Meses passados, fechados ou com o salário editado à mão não mudam.
 - Excluir o salário de um mês é definitivo para aquele mês: ele não é recriado.
+
+### Contas fixas
+- Gastos que se repetem todo mês com o mesmo valor (faculdade, aluguel, academia). Crie em Ajustes › Contas fixas ou marque **Repetir todo mês** ao registrar um gasto à vista.
+- O app lança cada conta sozinho, no dia escolhido. Em meses mais curtos, ela cai no último dia do mês. Os lançamentos aparecem no Extrato com o selo de repetição.
+- Mudar a conta em Ajustes atualiza o mês atual e os seguintes. Meses passados, fechados ou com o lançamento editado à mão não mudam.
+- Ao excluir o lançamento, dá para tirar a conta só daquele mês (ela não volta nele) ou encerrá-la daquele mês em diante. Em Ajustes, **Encerrar** para a conta a partir do próximo mês ou já no mês atual.
 
 ### Investimentos
 - Carteira por projeto (ex.: "CDB Banco X") com tipo de ativo e rendimento em % ao mês.

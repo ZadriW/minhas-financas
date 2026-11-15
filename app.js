@@ -111,13 +111,26 @@ function mesLimiteAvanco() {
   return mesAposUltimoFechado > mesHoje ? mesAposUltimoFechado : mesHoje;
 }
 
-/* ---------- Salário automático ---------- */
+/* ---------- Lançamentos automáticos (salário e contas fixas) ---------- */
 
-/** Garante o salário automático até o mês atual (ou até o mês selecionado, se for futuro). */
-function sincronizarSalariosApp() {
+/** Lança salário e contas fixas até o mês atual (ou até o mês selecionado, se for futuro). */
+function sincronizarAutomaticosApp() {
   const mesHoje = mesDe(hojeISO());
   const ateMes = mesSelecionado > mesHoje ? mesSelecionado : mesHoje;
-  if (sincronizarSalarios(dados, ateMes)) salvar();
+  const salarios = sincronizarSalarios(dados, ateMes);
+  const contas = sincronizarContasFixas(dados, ateMes);
+  if (salarios || contas) salvar();
+}
+
+function contaFixaPorId(id) {
+  return id ? dados.config.contasFixas.find((c) => c.id === id) || null : null;
+}
+
+function ignorarContaFixaNoMes(conta, mesISO) {
+  if (!conta.mesesIgnorados.includes(mesISO)) {
+    conta.mesesIgnorados.push(mesISO);
+    conta.mesesIgnorados.sort();
+  }
 }
 
 function ignorarSalarioNoMes(mesISO) {
@@ -157,7 +170,7 @@ const TITULOS = {
   transacoes: ["Extrato", "Tudo o que entrou e saiu no mês."],
   investimentos: ["Investimentos", "Quanto você tem guardado e quanto está rendendo."],
   relatorios: ["Relatórios", "Compare os meses e faça backup dos seus dados."],
-  configuracoes: ["Ajustes", "Salário, categorias e assistente de IA."],
+  configuracoes: ["Ajustes", "Salário, contas fixas, categorias e assistente de IA."],
 };
 
 // Paleta do gráfico da carteira (tons com luminosidade parecida, do tema "Noite serena")
@@ -189,7 +202,7 @@ function irPara(secao) {
 
 function mudarMes(mesISO) {
   mesSelecionado = mesISO;
-  sincronizarSalariosApp();
+  sincronizarAutomaticosApp();
   renderizar();
 }
 
@@ -504,6 +517,7 @@ function botoesAcaoHTML(t) {
 function detalheTransacao(t) {
   const partes = [];
   if (t.tipo === "despesa") {
+    if (t.contaFixaId) partes.push("Conta fixa");
     partes.push(FORMAS_PAGAMENTO[t.formaPagamento] || FORMAS_PAGAMENTO.debito);
     if (t.parcelaTotal > 1) partes.push(`parcela ${Number(t.parcelaAtual)} de ${Number(t.parcelaTotal)}`);
   } else if (t.tipo === "ganho") {
@@ -521,7 +535,9 @@ function linhaLancamentoHTML(t, comAcoes) {
     ? `<span class="lanc-cat">${escapeHTML(v.cat)}</span>`
     : "";
   return `<div class="lanc-item">
-    <span class="lanc-icone lanc-${t.tipo}">${iconeTransacao(t)}</span>
+    <span class="lanc-icone lanc-${t.tipo}">${iconeTransacao(t)}${t.contaFixaId
+      ? `<span class="selo-fixa" title="Conta fixa: lançada todo mês"><i class="fa-solid fa-repeat" aria-hidden="true"></i></span>`
+      : ""}</span>
     <div class="lanc-info">
       <span class="lanc-titulo">${escapeHTML(t.descricao)}</span>
       <span class="lanc-detalhe">${escapeHTML(detalheTransacao(t))}</span>
@@ -620,6 +636,8 @@ function renderDashboard() {
   document.getElementById("hero-guardado-sub").textContent =
     r.investido < 0 ? "Mais retirado do que aplicado" : "Aplicado em investimentos";
 
+  renderCardContasFixas(r);
+
   // Para onde foi o dinheiro
   const categorias = despesasPorCategoria(dados.transacoes, [mesSelecionado]);
   document.getElementById("dash-total-gasto").textContent = r.despesas > 0 ? `Total ${moeda(r.despesas)}` : "";
@@ -630,6 +648,81 @@ function renderDashboard() {
   document.getElementById("dash-ultimas").innerHTML = ultimas.length
     ? listaPorDiaHTML(ultimas)
     : `<div class="cat-bars-empty">Nenhum lançamento neste mês.</div>`;
+}
+
+const FIXAS_NO_CARD = 6;
+
+/** Card "Contas fixas" do Início: custo base do mês, peso na renda e o que já foi pago. */
+function renderCardContasFixas(r) {
+  const hoje = hojeISO();
+  const f = resumoContasFixas(dados.transacoes, mesSelecionado, hoje);
+  const temContas = dados.config.contasFixas.length > 0;
+  const mesNome = nomeMes(mesSelecionado).toLowerCase();
+
+  document.getElementById("dash-fixas-corpo").classList.toggle("hidden", !f.itens.length);
+  document.getElementById("dash-fixas-vazio").classList.toggle("hidden", f.itens.length > 0);
+  document.getElementById("dash-fixas-gerenciar").classList.toggle("hidden", !temContas);
+  if (!f.itens.length) {
+    document.getElementById("dash-fixas-vazio-msg").textContent = temContas
+      ? `Nenhuma conta fixa lançada em ${mesNome}.`
+      : "Cadastre os gastos que se repetem todo mês, como faculdade, aluguel ou academia, e veja aqui o seu custo base.";
+    document.getElementById("dash-fixas-adicionar").classList.toggle("hidden", temContas);
+    return;
+  }
+
+  document.getElementById("dash-fixas-total").textContent = moeda(f.total);
+
+  // Peso na renda: o que entrou no mês ou, se nada entrou ainda, o salário informado
+  const renda = r.ganhos > 0 ? r.ganhos : dados.config.salario;
+  const origem = r.ganhos > 0 ? "do que entrou" : "do seu salário";
+  let frase;
+  if (!(renda > 0)) frase = "Informe seu salário em Ajustes para ver quanto da renda isso representa.";
+  else if (f.total > renda) frase = `As contas fixas passam ${origem} em ${moeda(f.total - renda)}.`;
+  else frase = `Isso é ${porcento(f.total, renda)}% ${origem}. Sobram ${moeda(renda - f.total)} para o resto do mês.`;
+  document.getElementById("dash-fixas-frase").textContent = frase;
+
+  const pPago = f.total > 0 ? (f.pago / f.total) * 100 : 0;
+  document.getElementById("dash-fixas-barra-pago").style.width = `${pPago}%`;
+  document.getElementById("dash-fixas-barra-a-pagar").style.width = `${100 - pPago}%`;
+  document.getElementById("dash-fixas-barra").setAttribute(
+    "aria-label", `Já pago ${moeda(f.pago)} de ${moeda(f.total)}; ainda vence ${moeda(f.aPagar)}`
+  );
+  document.getElementById("dash-fixas-pago").textContent = moeda(f.pago);
+  document.getElementById("dash-fixas-a-pagar").textContent = moeda(f.aPagar);
+
+  let proxima;
+  if (!f.proxima) {
+    proxima = "Todas as contas fixas deste mês já foram pagas.";
+  } else {
+    // No mês atual, conta os dias até a próxima; em meses futuros, mostra o dia
+    const dia = Number(f.proxima.data.slice(8));
+    const dias = mesDe(hoje) === mesSelecionado ? dia - Number(hoje.slice(8)) : null;
+    const quando = dias === 1 ? "amanhã" : dias ? `em ${dias} dias` : `dia ${dia}`;
+    proxima = `Próxima: ${f.proxima.descricao}, ${moeda(f.proxima.valor)}, ${quando}.`;
+  }
+  document.getElementById("dash-fixas-proxima-texto").textContent = proxima;
+
+  const linhas = f.itens.slice(0, FIXAS_NO_CARD).map((t) => {
+    const dia = Number(t.data.slice(8));
+    const pago = t.data <= hoje;
+    const status = pago
+      ? `<span class="fixa-status pago"><i class="fa-solid fa-check" aria-hidden="true"></i> Pago</span>`
+      : `<span class="fixa-status a-pagar"><i class="fa-regular fa-clock" aria-hidden="true"></i> ${t === f.proxima ? "Próxima" : "A pagar"}</span>`;
+    return `<li class="fixa-linha">
+      <span class="fixa-icone">${iconeCategoriaHTML(t.categoria)}</span>
+      <span class="fixa-info">
+        <span class="fixa-nome">${escapeHTML(t.descricao)}</span>
+        <span class="fixa-detalhe">Dia ${dia} · ${escapeHTML(FORMAS_PAGAMENTO[t.formaPagamento] || "")}</span>
+      </span>
+      ${status}
+      <span class="fixa-valor">${moeda(t.valor)}</span>
+    </li>`;
+  });
+  const resto = f.itens.length - FIXAS_NO_CARD;
+  if (resto > 0) {
+    linhas.push(`<li class="fixa-mais">e mais ${resto} ${resto === 1 ? "conta" : "contas"} · veja no Extrato</li>`);
+  }
+  document.getElementById("dash-fixas-lista").innerHTML = linhas.join("");
 }
 
 /* ---------- Renderização: Extrato ---------- */
@@ -918,12 +1011,156 @@ function renderConfiguracoes() {
     ? `Lançado automaticamente todo mês desde ${nomeMes(dados.config.mesInicioSalario)}.`
     : " ";
 
+  renderContasFixas();
+
   document.getElementById("lista-categorias").innerHTML = dados.config.categorias
     .map((c) => {
       const nome = escapeHTML(c);
       return `<span class="chip">${nome} <button data-remover-cat="${nome}" title="Remover" aria-label="Remover categoria ${nome}">✕</button></span>`;
     })
     .join("");
+}
+
+/* ---------- Contas fixas (Ajustes) ---------- */
+
+function renderContasFixas() {
+  const mesHoje = mesDe(hojeISO());
+  const contas = contasFixasAtivas(dados.config, mesHoje);
+  const total = contas.filter((c) => c.mesInicio <= mesHoje).reduce((s, c) => s + c.valor, 0);
+
+  document.getElementById("lista-contas-fixas").innerHTML = contas.length
+    ? contas.map((c) => {
+        const id = escapeHTML(c.id);
+        const desc = escapeHTML(c.descricao);
+        const periodo = [
+          c.mesInicio > mesHoje ? `a partir de ${nomeMes(c.mesInicio).toLowerCase()}` : "",
+          c.mesFim ? `até ${nomeMes(c.mesFim).toLowerCase()}` : "",
+        ].filter(Boolean).join(", ");
+        const detalhe = [`Todo dia ${c.dia}`, c.categoria, FORMAS_PAGAMENTO[c.formaPagamento], periodo].filter(Boolean).join(" · ");
+        return `<div class="lanc-item">
+          <span class="lanc-icone lanc-despesa">${iconeCategoriaHTML(c.categoria)}</span>
+          <div class="lanc-info">
+            <span class="lanc-titulo">${desc}</span>
+            <span class="lanc-detalhe">${escapeHTML(detalhe)}</span>
+          </div>
+          <span class="lanc-valor negative">− ${moeda(c.valor)}</span>
+          <div class="lanc-acoes">
+            <button class="btn btn-ghost btn-icon" data-editar-fixa="${id}" title="Editar" aria-label="Editar conta fixa ${desc}">
+              <i class="fa-solid fa-pen" aria-hidden="true"></i>
+            </button>
+            <button class="btn btn-ghost btn-icon" data-encerrar-fixa="${id}" title="Encerrar" aria-label="Encerrar conta fixa ${desc}">
+              <i class="fa-solid fa-ban" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>`;
+      }).join("") +
+      (total > 0 ? `<p class="fixas-total">Total por mês: <strong>${moeda(total)}</strong></p>` : "")
+    : `<div class="cat-bars-empty">Nenhuma conta fixa ainda. Adicione abaixo ou marque “Repetir todo mês” ao registrar um gasto.</div>`;
+
+  // Categorias do formulário (mantém a escolhida, mesmo que tenha sido removida da lista)
+  const select = document.getElementById("fixa-categoria");
+  const escolhida = select.value;
+  const cats = [...dados.config.categorias];
+  if (escolhida && !cats.includes(escolhida)) cats.push(escolhida);
+  select.innerHTML = cats.map((c) => `<option>${escapeHTML(c)}</option>`).join("");
+  if (escolhida) select.value = escolhida;
+  else if (cats.includes("Educação")) select.value = "Educação";
+}
+
+function limparFormContaFixa() {
+  document.getElementById("form-conta-fixa").reset();
+  document.getElementById("fixa-id").value = "";
+  document.getElementById("fixa-form-titulo").textContent = "Adicionar conta fixa";
+  document.getElementById("fixa-salvar").textContent = "Adicionar conta fixa";
+  document.getElementById("fixa-ajuda").textContent =
+    "Começa a ser lançada neste mês. Em meses com menos dias, cai no último dia do mês.";
+  document.getElementById("fixa-cancelar").classList.add("hidden");
+  const select = document.getElementById("fixa-categoria");
+  select.value = dados.config.categorias.includes("Educação") ? "Educação" : dados.config.categorias[0] || "";
+}
+
+function editarContaFixa(id) {
+  const c = contaFixaPorId(id);
+  if (!c) return;
+  const select = document.getElementById("fixa-categoria");
+  if (![...select.options].some((o) => o.value === c.categoria)) select.add(new Option(c.categoria));
+  document.getElementById("fixa-id").value = c.id;
+  document.getElementById("fixa-descricao").value = c.descricao;
+  document.getElementById("fixa-valor").value = c.valor;
+  document.getElementById("fixa-dia").value = c.dia;
+  select.value = c.categoria;
+  document.getElementById("fixa-forma").value = c.formaPagamento;
+  document.getElementById("fixa-form-titulo").textContent = `Editar ${c.descricao}`;
+  document.getElementById("fixa-salvar").textContent = "Salvar alterações";
+  document.getElementById("fixa-ajuda").textContent =
+    "As mudanças valem deste mês em diante. Meses fechados e lançamentos que você editou à mão não mudam.";
+  document.getElementById("fixa-cancelar").classList.remove("hidden");
+  document.getElementById("form-conta-fixa").scrollIntoView({ behavior: "smooth", block: "center" });
+  document.getElementById("fixa-descricao").focus({ preventScroll: true });
+}
+
+function salvarContaFixaDoForm(e) {
+  e.preventDefault();
+  const id = document.getElementById("fixa-id").value;
+  const descricao = document.getElementById("fixa-descricao").value.trim().slice(0, 200);
+  const valor = Math.round(parseFloat(document.getElementById("fixa-valor").value) * 100) / 100;
+  const dia = parseInt(document.getElementById("fixa-dia").value, 10);
+  const categoria = document.getElementById("fixa-categoria").value || "Outros";
+  const formaPagamento = document.getElementById("fixa-forma").value;
+
+  if (!descricao || !(valor > 0)) {
+    toast("Preencha o nome e o valor da conta fixa.");
+    return;
+  }
+  if (!(dia >= 1 && dia <= 31)) {
+    toast("Informe um dia entre 1 e 31.");
+    return;
+  }
+
+  const mesHoje = mesDe(hojeISO());
+  const campos = { descricao, valor, dia, categoria, formaPagamento };
+  if (id) {
+    const conta = contaFixaPorId(id);
+    if (!conta) {
+      toast("Esta conta fixa não existe mais.");
+      limparFormContaFixa();
+      return;
+    }
+    Object.assign(conta, campos);
+    aplicarMudancaContaFixa(dados, conta, mesHoje);
+  } else {
+    dados.config.contasFixas.push({ id: uid(), ...campos, mesInicio: mesHoje, mesFim: null, mesesIgnorados: [] });
+  }
+  sincronizarAutomaticosApp();
+  limparFormContaFixa();
+  persistir(id ? "Conta fixa atualizada deste mês em diante." : `Conta fixa adicionada: lançada todo dia ${dia}.`);
+}
+
+async function encerrarContaFixaApp(id) {
+  const c = contaFixaPorId(id);
+  if (!c) return;
+  const mesHoje = mesDe(hojeISO());
+  const proximo = proximoMes(mesHoje);
+  const lancadaEsteMes = dados.transacoes.some((t) => t.contaFixaId === id && mesDe(t.data) === mesHoje);
+
+  const botoes = [{ valor: proximo, rotulo: "Parar a partir do próximo mês", estilo: "danger" }];
+  if (c.mesInicio <= mesHoje && !mesFechado(mesHoje)) {
+    botoes.push({ valor: mesHoje, rotulo: "Parar já neste mês", estilo: "outline" });
+  }
+  const escolha = await dialogo({
+    titulo: `Encerrar ${c.descricao}`,
+    mensagem: `A conta fixa "${c.descricao}" (${moeda(c.valor)} por mês) deixará de ser lançada.` +
+      (lancadaEsteMes && !mesFechado(mesHoje)
+        ? `\n\n"Parar já neste mês" também apaga o lançamento de ${nomeMes(mesHoje).toLowerCase()}.`
+        : "") +
+      "\n\nOs meses anteriores não mudam.",
+    botoes,
+  });
+  if (!escolha) return;
+
+  encerrarContaFixa(dados, id, escolha);
+  if (document.getElementById("fixa-id").value === id) limparFormContaFixa();
+  persistir(`"${c.descricao}" encerrada.`);
 }
 
 function renderResumoSidebar() {
@@ -987,7 +1224,7 @@ async function fecharMes() {
   dados.config.mesesFechados.push(mesEncerrado);
   dados.config.mesesFechados.sort();
   mesSelecionado = proximoMes(mesEncerrado);
-  sincronizarSalariosApp();
+  sincronizarAutomaticosApp();
   persistir(`${nomeMes(mesEncerrado)} fechado. Indo para ${nomeMes(mesSelecionado)}.`);
 }
 
@@ -1001,7 +1238,7 @@ async function reabrirMes() {
   if (!ok || !mesFechado(mes)) return;
 
   dados.config.mesesFechados = dados.config.mesesFechados.filter((m) => m !== mes);
-  sincronizarSalariosApp();
+  sincronizarAutomaticosApp();
   persistir(`${nomeMes(mes)} reaberto.`);
 }
 
@@ -1326,17 +1563,27 @@ function atualizarCamposModal() {
   document.getElementById("grupo-resgate").classList.toggle("hidden", tipo !== "investimento" || modoResgate);
   document.getElementById("grupo-forma-pagamento").classList.toggle("hidden", tipo !== "despesa");
 
+  const forma = document.getElementById("tx-forma-pagamento").value;
+  const podeParcelar = tipo === "despesa" && ehNova && (forma === "credito" || forma === "pix");
+  const parcelado = podeParcelar && (parseInt(document.getElementById("tx-parcelas").value, 10) || 1) > 1;
+
+  // Conta fixa: só para gasto novo à vista (não combina com parcelamento)
+  const permiteFixa = tipo === "despesa" && ehNova && !modoResgate && !parcelado;
+  const elFixa = document.getElementById("tx-fixa");
+  if (!permiteFixa) elFixa.checked = false;
+  document.getElementById("grupo-fixa").classList.toggle("hidden", !permiteFixa);
+  const fixa = elFixa.checked;
+
   document.getElementById("modal-salvar").textContent = modoResgate
     ? "Confirmar retirada"
-    : { despesa: "Salvar gasto", ganho: "Salvar entrada", investimento: "Salvar" }[tipo];
+    : fixa ? "Salvar conta fixa" : { despesa: "Salvar gasto", ganho: "Salvar entrada", investimento: "Salvar" }[tipo];
 
-  const forma = document.getElementById("tx-forma-pagamento").value;
   document.querySelectorAll("#tx-forma-botoes .pill").forEach((b) => {
     const ativa = b.dataset.forma === forma;
     b.classList.toggle("active", ativa);
     b.setAttribute("aria-pressed", String(ativa));
   });
-  const permiteParcelas = tipo === "despesa" && ehNova && (forma === "credito" || forma === "pix");
+  const permiteParcelas = podeParcelar && !fixa;
   document.getElementById("grupo-parcelas").classList.toggle("hidden", !permiteParcelas);
   if (permiteParcelas) preencherSelectParcelas();
 }
@@ -1388,7 +1635,7 @@ function abrirModal(tx, { resgateDe = null } = {}) {
   statusIA("");
 
   // Tipo travado quando trocar de tipo perderia informações (investimento, parcela, salário)
-  const travarTipo = !!resgateDe || (tx && (tx.tipo === "investimento" || tx.parcelamentoId || tx.salarioAuto));
+  const travarTipo = !!resgateDe || (tx && (tx.tipo === "investimento" || tx.parcelamentoId || tx.salarioAuto || tx.contaFixaId));
   document.getElementById("tx-tipo-toggle").classList.toggle("hidden", !!travarTipo);
 
   const elDescricao = document.getElementById("tx-descricao");
@@ -1413,6 +1660,10 @@ function abrirModal(tx, { resgateDe = null } = {}) {
       mostrarInfoModal(`Parcela ${tx.parcelaAtual} de ${tx.parcelaTotal} · ${FORMAS_PAGAMENTO[tx.formaPagamento] || ""}`);
     } else if (tx.salarioAuto) {
       mostrarInfoModal("Salário lançado automaticamente. Após editar, ele não acompanha mais mudanças feitas em Ajustes.");
+    } else if (tx.contaFixaId) {
+      mostrarInfoModal(contaFixaPorId(tx.contaFixaId)
+        ? "Conta fixa: a mudança vale só para este mês. Para mudar os próximos meses, use Ajustes › Contas fixas."
+        : "Lançamento de uma conta fixa que já foi encerrada.");
     }
   } else {
     // Data padrão: hoje se estivermos no mês selecionado, senão dia 1 do mês
@@ -1531,6 +1782,22 @@ function salvarTransacaoDoForm(e) {
     return;
   }
 
+  // Conta fixa: cria a conta e a sincronização lança este mês e os seguintes
+  if (!original && tipo === "despesa" && document.getElementById("tx-fixa").checked) {
+    const conta = {
+      id: uid(), descricao, valor, dia: Number(data.slice(8)), categoria: tx.categoria,
+      formaPagamento: tx.formaPagamento, mesInicio: mesDe(data), mesFim: null, mesesIgnorados: [],
+    };
+    dados.config.contasFixas.push(conta);
+    sincronizarAutomaticosApp();
+    const lancados = dados.transacoes.filter((t) => t.contaFixaId === conta.id).length;
+    fecharModal();
+    persistir(lancados > 1
+      ? `Conta fixa salva e lançada nos ${lancados} meses desde ${nomeMes(conta.mesInicio).toLowerCase()}.`
+      : `Conta fixa salva: "${descricao}" será lançada todo dia ${conta.dia}.`);
+    return;
+  }
+
   if (original) {
     if (original.rendimentoMensal != null) tx.rendimentoMensal = original.rendimentoMensal;
     if (original.parcelamentoId) {
@@ -1546,6 +1813,18 @@ function salvarTransacaoDoForm(e) {
       } else {
         // Movido para outro mês: vira um ganho comum e o mês de origem fica sem salário automático
         ignorarSalarioNoMes(mesDe(original.data));
+      }
+    }
+    if (original.contaFixaId) {
+      if (mesDe(data) === mesDe(original.data)) {
+        tx.contaFixaId = original.contaFixaId;
+        const mudou = valor !== original.valor || data !== original.data || descricao !== original.descricao ||
+          tx.categoria !== original.categoria || tx.formaPagamento !== original.formaPagamento;
+        if (original.contaFixaEditada || mudou) tx.contaFixaEditada = true;
+      } else {
+        // Movido para outro mês: vira um gasto comum e a conta não é relançada no mês de origem
+        const conta = contaFixaPorId(original.contaFixaId);
+        if (conta) ignorarContaFixaNoMes(conta, mesDe(original.data));
       }
     }
     dados.transacoes[dados.transacoes.indexOf(original)] = tx;
@@ -1605,6 +1884,30 @@ async function excluirTransacao(id) {
     return;
   }
 
+  const conta = contaFixaPorId(t.contaFixaId);
+  if (conta) {
+    const mes = mesDe(t.data);
+    const escolha = await dialogo({
+      titulo: "Excluir conta fixa",
+      mensagem: `"${t.descricao}" (${moeda(t.valor)}) é uma conta fixa, lançada todo mês.\n\n` +
+        `Você pode tirá-la só de ${nomeMes(mes).toLowerCase()} ou parar de lançá-la deste mês em diante.`,
+      botoes: [
+        { valor: "mes", rotulo: "Só deste mês", estilo: "outline" },
+        { valor: "proximos", rotulo: "Deste mês em diante", estilo: "danger" },
+      ],
+    });
+    if (!escolha) return;
+    if (escolha === "mes") {
+      ignorarContaFixaNoMes(conta, mes);
+      dados.transacoes = dados.transacoes.filter((x) => x.id !== id);
+      persistir(`"${t.descricao}" removida de ${nomeMes(mes)}. Nos outros meses ela continua.`);
+    } else {
+      encerrarContaFixa(dados, conta.id, mes);
+      persistir(`"${conta.descricao}" encerrada a partir de ${nomeMes(mes)}.`);
+    }
+    return;
+  }
+
   const ok = await confirmar("Excluir lançamento", `Excluir "${t.descricao}" de ${moeda(t.valor)}?`, { rotulo: "Excluir", perigo: true });
   if (!ok) return;
   dados.transacoes = dados.transacoes.filter((x) => x.id !== id);
@@ -1632,10 +1935,15 @@ async function removerCategoria(cat) {
     return;
   }
   const emUso = dados.transacoes.filter((t) => t.tipo === "despesa" && t.categoria === cat).length;
+  const fixas = contasFixasAtivas(dados.config, mesDe(hojeISO())).filter((c) => c.categoria === cat).length;
+  const usos = [
+    emUso ? `${emUso} lançamento(s)` : "",
+    fixas ? `${fixas} conta(s) fixa(s)` : "",
+  ].filter(Boolean).join(" e ");
   const ok = await confirmar(
     "Remover categoria",
-    emUso
-      ? `${emUso} lançamento(s) usam "${cat}". Eles mantêm essa categoria, mas ela deixa de aparecer para novos lançamentos.`
+    usos
+      ? `${usos} usam "${cat}". Eles mantêm essa categoria, mas ela deixa de aparecer para novos lançamentos.`
       : `Remover "${cat}" da lista de categorias?`,
     { rotulo: "Remover", perigo: true }
   );
@@ -1658,7 +1966,7 @@ function baixarArquivo(nome, conteudo, mime) {
 }
 
 function exportarCSV() {
-  const cabecalho = linhaCSV(["Data", "Tipo", "Descrição", "Categoria/Ativo", "Forma de pagamento", "Parcela", "Resgate", "Valor"]);
+  const cabecalho = linhaCSV(["Data", "Tipo", "Descrição", "Categoria/Ativo", "Forma de pagamento", "Parcela", "Conta fixa", "Resgate", "Valor"]);
   const linhas = [...dados.transacoes]
     .sort((a, b) => a.data.localeCompare(b.data))
     .map((t) => linhaCSV([
@@ -1668,6 +1976,7 @@ function exportarCSV() {
       t.categoria || t.ativo || "",
       t.tipo === "despesa" ? FORMAS_PAGAMENTO[t.formaPagamento] || "" : "",
       t.parcelaTotal > 1 ? `${t.parcelaAtual} de ${t.parcelaTotal}` : "",
+      t.contaFixaId ? "Sim" : "",
       t.tipo === "investimento" ? (t.resgate ? "Sim" : "Não") : "",
       t.valor,
     ]));
@@ -1706,7 +2015,7 @@ async function importarJSON(arquivo) {
 
   novos.config.geminiApiKey = dados.config.geminiApiKey; // mantém a chave deste navegador
   dados = novos;
-  sincronizarSalariosApp();
+  sincronizarAutomaticosApp();
   persistir("Backup importado com sucesso.");
 }
 
@@ -1768,6 +2077,8 @@ function configurarEventos() {
   document.querySelectorAll('input[name="tx-tipo"]').forEach((r) =>
     r.addEventListener("change", atualizarCamposModal)
   );
+  document.getElementById("tx-fixa").addEventListener("change", atualizarCamposModal);
+  document.getElementById("tx-parcelas").addEventListener("change", atualizarCamposModal);
   document.getElementById("tx-valor").addEventListener("input", () => {
     if (!document.getElementById("grupo-parcelas").classList.contains("hidden")) preencherSelectParcelas();
   });
@@ -1779,7 +2090,7 @@ function configurarEventos() {
 
   // Ações nas listas (delegação)
   document.body.addEventListener("click", (e) => {
-    const alvo = e.target.closest("[data-editar], [data-excluir], [data-excluir-projeto], [data-resgatar-projeto], [data-remover-cat]");
+    const alvo = e.target.closest("[data-editar], [data-excluir], [data-excluir-projeto], [data-resgatar-projeto], [data-remover-cat], [data-editar-fixa], [data-encerrar-fixa]");
     if (!alvo) return;
     const ds = alvo.dataset;
     if (ds.editar) {
@@ -1793,6 +2104,10 @@ function configurarEventos() {
       excluirProjetoCarteira(ds.excluirProjeto);
     } else if (ds.removerCat) {
       removerCategoria(ds.removerCat);
+    } else if (ds.editarFixa) {
+      editarContaFixa(ds.editarFixa);
+    } else if (ds.encerrarFixa) {
+      encerrarContaFixaApp(ds.encerrarFixa);
     }
   });
 
@@ -1843,9 +2158,17 @@ function configurarEventos() {
     }
 
     aplicarMudancaSalario(dados, mesHoje);
-    sincronizarSalariosApp();
+    sincronizarAutomaticosApp();
     persistir("Salário salvo.");
   });
+
+  document.getElementById("dash-fixas-adicionar").addEventListener("click", () => {
+    irPara("configuracoes");
+    document.getElementById("form-conta-fixa").scrollIntoView({ block: "center" });
+    document.getElementById("fixa-descricao").focus({ preventScroll: true });
+  });
+  document.getElementById("form-conta-fixa").addEventListener("submit", salvarContaFixaDoForm);
+  document.getElementById("fixa-cancelar").addEventListener("click", limparFormContaFixa);
 
   document.getElementById("btn-salvar-gemini").addEventListener("click", () => {
     dados.config.geminiApiKey = document.getElementById("config-gemini-key").value.trim();
@@ -1890,7 +2213,7 @@ function configurarEventos() {
   // App aberto de um dia para o outro: atualiza salário automático e datas de referência
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "visible" || hojeISO() === diaRenderizado) return;
-    sincronizarSalariosApp();
+    sincronizarAutomaticosApp();
     renderizar();
   });
 }
@@ -1898,7 +2221,7 @@ function configurarEventos() {
 /* ---------- Inicialização ---------- */
 
 configurarEventos();
-sincronizarSalariosApp();
+sincronizarAutomaticosApp();
 salvar(); // grava dados já normalizados/migrados
 renderizar();
 if (descartadasAoCarregar > 0) {

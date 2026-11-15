@@ -24,13 +24,14 @@ const PREFIXO_CHAVE_VAZADA = "AQ.Ab8RN6LS";
 
 function dadosIniciais() {
   return {
-    transacoes: [], // {id, tipo, descricao, valor, data:"YYYY-MM-DD", categoria?, ativo?, rendimentoMensal?, resgate?, formaPagamento?, parcelamentoId?, parcelaAtual?, parcelaTotal?, salarioAuto?, salarioEditado?}
+    transacoes: [], // {id, tipo, descricao, valor, data:"YYYY-MM-DD", categoria?, ativo?, rendimentoMensal?, resgate?, formaPagamento?, parcelamentoId?, parcelaAtual?, parcelaTotal?, salarioAuto?, salarioEditado?, contaFixaId?, contaFixaEditada?}
     config: {
       salario: 0,
       diaSalario: 5,
       mesInicioSalario: null, // "YYYY-MM" do mês em que o salário foi configurado
       mesesFechados: [], // meses encerrados pelo usuário ("YYYY-MM")
       salarioMesesIgnorados: [], // meses em que o usuário excluiu o salário automático
+      contasFixas: [], // {id, descricao, valor, dia, categoria, formaPagamento, mesInicio, mesFim, mesesIgnorados}
       categorias: [...CATEGORIAS_PADRAO],
       geminiApiKey: "",
     },
@@ -100,6 +101,19 @@ function mesesEntre(dataInicioISO, dataFimISO) {
   const [a1, m1] = dataInicioISO.split("-").map(Number);
   const [a2, m2] = dataFimISO.split("-").map(Number);
   return Math.max(0, (a2 - a1) * 12 + (m2 - m1));
+}
+
+/** Data no mês com o dia limitado ao último dia dele (ex.: dia 31 em fevereiro → 28/29). */
+function dataNoMes(mesISO, dia) {
+  const [ano, mes] = mesISO.split("-").map(Number);
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  return `${mesISO}-${pad2(Math.min(Math.max(1, dia), ultimoDia))}`;
+}
+
+function mesAnterior(mesISO) {
+  const [a, m] = mesISO.split("-").map(Number);
+  const d = new Date(a, m - 2, 1);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
 }
 
 function limitarDiaSalario(v) {
@@ -326,6 +340,120 @@ function aplicarMudancaSalario(dados, mesHoje) {
   }
 }
 
+/* ---------- Contas fixas ---------- */
+
+function limitarDiaContaFixa(v) {
+  return Math.min(31, Math.max(1, parseInt(v, 10) || 1));
+}
+
+/** Contas que ainda serão lançadas depois de mesISO (para listar em Ajustes). */
+function contasFixasAtivas(config, mesISO) {
+  return (config.contasFixas || []).filter((c) => !c.mesFim || c.mesFim > mesISO);
+}
+
+/**
+ * Contas fixas lançadas no mês, em ordem de dia, separando o que já passou
+ * da data de hoje (pago) do que ainda vence.
+ */
+function resumoContasFixas(transacoes, mesISO, hoje) {
+  const itens = transacoes
+    .filter((t) => t.tipo === "despesa" && t.contaFixaId && mesDe(t.data) === mesISO)
+    .sort((a, b) => a.data.localeCompare(b.data) || a.descricao.localeCompare(b.descricao));
+  let total = 0, pago = 0;
+  for (const t of itens) {
+    total += t.valor;
+    if (t.data <= hoje) pago += t.valor;
+  }
+  const centavos = (v) => Math.round(v * 100) / 100;
+  return {
+    itens,
+    total: centavos(total),
+    pago: centavos(pago),
+    aPagar: centavos(total - pago),
+    proxima: itens.find((t) => t.data > hoje) || null,
+  };
+}
+
+/**
+ * Lança cada conta fixa nos meses de mesInicio até ateMes (ou mesFim) que
+ * ainda não a têm, exceto meses fechados e meses em que o usuário a excluiu.
+ * Retorna true se algo foi lançado.
+ */
+function sincronizarContasFixas(dados, ateMes) {
+  const fechados = dados.config.mesesFechados || [];
+  let alterou = false;
+
+  for (const conta of dados.config.contasFixas || []) {
+    const fim = conta.mesFim && conta.mesFim < ateMes ? conta.mesFim : ateMes;
+    if (fim < conta.mesInicio) continue;
+    const ignorados = conta.mesesIgnorados || [];
+    const jaLancados = new Set(dados.transacoes.filter((t) => t.contaFixaId === conta.id).map((t) => mesDe(t.data)));
+
+    for (const mes of mesesDeAte(conta.mesInicio, fim)) {
+      if (jaLancados.has(mes) || fechados.includes(mes) || ignorados.includes(mes)) continue;
+      dados.transacoes.push({
+        id: uid(),
+        tipo: "despesa",
+        descricao: conta.descricao,
+        valor: conta.valor,
+        data: dataNoMes(mes, conta.dia),
+        categoria: conta.categoria,
+        formaPagamento: conta.formaPagamento,
+        contaFixaId: conta.id,
+      });
+      alterou = true;
+    }
+  }
+  return alterou;
+}
+
+/**
+ * Aplica os dados atuais da conta aos lançamentos dela do mês atual em
+ * diante, em meses abertos e não editados manualmente. Meses passados não mudam.
+ */
+function aplicarMudancaContaFixa(dados, conta, mesHoje) {
+  const fechados = dados.config.mesesFechados || [];
+  for (const t of dados.transacoes) {
+    const mes = mesDe(t.data);
+    if (t.contaFixaId !== conta.id || t.contaFixaEditada || mes < mesHoje || fechados.includes(mes)) continue;
+    t.descricao = conta.descricao;
+    t.valor = conta.valor;
+    t.data = dataNoMes(mes, conta.dia);
+    t.categoria = conta.categoria;
+    t.formaPagamento = conta.formaPagamento;
+  }
+}
+
+/**
+ * Para de lançar a conta a partir de aPartirDe ("YYYY-MM"): remove os
+ * lançamentos dela nesse mês e nos seguintes que estejam abertos. Se a conta
+ * nem chegou a começar, ela sai da lista. Retorna quantos lançamentos saíram.
+ */
+function encerrarContaFixa(dados, id, aPartirDe) {
+  const contas = dados.config.contasFixas || [];
+  const conta = contas.find((c) => c.id === id);
+  if (!conta) return 0;
+  const fechados = dados.config.mesesFechados || [];
+
+  const antes = dados.transacoes.length;
+  dados.transacoes = dados.transacoes.filter((t) =>
+    !(t.contaFixaId === id && mesDe(t.data) >= aPartirDe && !fechados.includes(mesDe(t.data)))
+  );
+
+  if (aPartirDe <= conta.mesInicio) {
+    dados.config.contasFixas = contas.filter((c) => c !== conta);
+    for (const t of dados.transacoes) {
+      if (t.contaFixaId !== id) continue;
+      delete t.contaFixaId; // restam só lançamentos em meses fechados: viram gastos comuns
+      delete t.contaFixaEditada;
+    }
+  } else {
+    const fim = mesAnterior(aPartirDe);
+    conta.mesFim = conta.mesFim && conta.mesFim < fim ? conta.mesFim : fim;
+  }
+  return antes - dados.transacoes.length;
+}
+
 /* ---------- Parcelamento ---------- */
 
 /** Divide uma despesa em n parcelas mensais; a última absorve o arredondamento. */
@@ -385,6 +513,10 @@ function sanitizarTransacao(t, idsUsados) {
       tx.parcelaAtual = atual;
       tx.parcelaTotal = total;
     }
+    if (typeof t.contaFixaId === "string" && RE_ID.test(t.contaFixaId)) {
+      tx.contaFixaId = t.contaFixaId;
+      if (t.contaFixaEditada === true) tx.contaFixaEditada = true;
+    }
   }
   if (t.tipo === "investimento") {
     const ativo = textoLimpo(t.ativo, 60);
@@ -398,6 +530,34 @@ function sanitizarTransacao(t, idsUsados) {
     if (t.salarioEditado === true) tx.salarioEditado = true;
   }
   return tx;
+}
+
+const CONTAS_FIXAS_MAX = 100;
+
+function sanitizarContasFixas(v) {
+  const contas = [];
+  const ids = new Set();
+  for (const c of Array.isArray(v) ? v : []) {
+    if (!c || typeof c !== "object" || contas.length >= CONTAS_FIXAS_MAX) continue;
+    const valor = Number(c.valor);
+    // Sem id válido não há como ligar a conta aos lançamentos dela
+    if (typeof c.id !== "string" || !RE_ID.test(c.id) || ids.has(c.id)) continue;
+    if (!Number.isFinite(valor) || valor <= 0 || !mesValido(c.mesInicio)) continue;
+    if (c.mesFim != null && !(mesValido(c.mesFim) && c.mesFim >= c.mesInicio)) continue;
+    ids.add(c.id);
+    contas.push({
+      id: c.id,
+      descricao: textoLimpo(c.descricao, 200) || "Conta fixa",
+      valor: Math.round(valor * 100) / 100,
+      dia: limitarDiaContaFixa(c.dia),
+      categoria: textoLimpo(c.categoria, 60) || "Outros",
+      formaPagamento: Object.hasOwn(FORMAS_PAGAMENTO, c.formaPagamento) ? c.formaPagamento : "debito",
+      mesInicio: c.mesInicio,
+      mesFim: c.mesFim ?? null,
+      mesesIgnorados: listaMeses(c.mesesIgnorados),
+    });
+  }
+  return contas;
 }
 
 function sanitizarConfig(c, transacoes) {
@@ -417,6 +577,7 @@ function sanitizarConfig(c, transacoes) {
 
   cfg.mesesFechados = listaMeses(c.mesesFechados);
   cfg.salarioMesesIgnorados = listaMeses(c.salarioMesesIgnorados);
+  cfg.contasFixas = sanitizarContasFixas(c.contasFixas);
 
   const categorias = [];
   for (const cat of Array.isArray(c.categorias) ? c.categorias : []) {
@@ -478,12 +639,13 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     CATEGORIAS_PADRAO, FORMAS_PAGAMENTO, PARCELAS_MAX, PREFIXO_CHAVE_VAZADA,
     dadosIniciais, uid,
-    hojeISO, mesDe, dataValida, mesValido, proximoMes, mesesAtras, mesesDeAte, adicionarMeses, mesesEntre,
-    limitarDiaSalario, escapeHTML, celulaCSV, linhaCSV,
+    hojeISO, mesDe, dataValida, mesValido, proximoMes, mesAnterior, mesesAtras, mesesDeAte, adicionarMeses, mesesEntre,
+    dataNoMes, limitarDiaSalario, limitarDiaContaFixa, escapeHTML, celulaCSV, linhaCSV,
     valorInvestimento, ehTransacaoSalario, transacoesDoMes, resumoDoMes, despesasPorCategoria, taxaPoupanca,
     efeitoNoSaldo, agruparPorDia,
     chaveProjeto, posicaoCarteira,
     sincronizarSalarios, aplicarMudancaSalario, gerarParcelas,
+    contasFixasAtivas, resumoContasFixas, sincronizarContasFixas, aplicarMudancaContaFixa, encerrarContaFixa,
     sanitizarDados, validarSugestaoIA,
   };
 }

@@ -160,6 +160,38 @@
           </div>
         </section>
 
+        <section class="card fixas-card" aria-labelledby="dash-fixas-titulo">
+          <div class="card-header">
+            <h2 id="dash-fixas-titulo">Contas fixas</h2>
+            <button class="btn-link" data-goto="configuracoes" id="dash-fixas-gerenciar">Gerenciar</button>
+          </div>
+          <div class="fixas-corpo" id="dash-fixas-corpo">
+            <div class="fixas-resumo">
+              <span class="fixas-rotulo">Custo base deste mês</span>
+              <strong class="fixas-valor" id="dash-fixas-total">R$ 0,00</strong>
+              <p class="fixas-frase" id="dash-fixas-frase">&nbsp;</p>
+              <div class="barra-mes barra-fixas" id="dash-fixas-barra" role="img" aria-label="">
+                <span class="barra-pago" id="dash-fixas-barra-pago"></span>
+                <span class="barra-a-pagar" id="dash-fixas-barra-a-pagar"></span>
+              </div>
+              <div class="barra-legenda">
+                <span><i class="leg leg-pago" aria-hidden="true"></i>Já pago <strong id="dash-fixas-pago">R$ 0,00</strong></span>
+                <span><i class="leg leg-a-pagar" aria-hidden="true"></i>Ainda vence <strong id="dash-fixas-a-pagar">R$ 0,00</strong></span>
+              </div>
+              <p class="fixas-proxima" id="dash-fixas-proxima">
+                <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+                <span id="dash-fixas-proxima-texto">&nbsp;</span>
+              </p>
+            </div>
+            <ul class="fixas-mes" id="dash-fixas-lista" aria-label="Contas fixas do mês"></ul>
+          </div>
+          <div class="fixas-vazio hidden" id="dash-fixas-vazio">
+            <span class="icone-redondo icone-saida"><i class="fa-solid fa-repeat" aria-hidden="true"></i></span>
+            <p id="dash-fixas-vazio-msg">&nbsp;</p>
+            <button class="btn btn-outline" id="dash-fixas-adicionar">Adicionar conta fixa</button>
+          </div>
+        </section>
+
         <div class="dash-grid">
           <section class="card" aria-labelledby="dash-cat-titulo">
             <div class="card-header">
@@ -408,6 +440,49 @@
           <button class="btn btn-primary" id="btn-salvar-config">Salvar salário</button>
         </section>
 
+        <section class="card narrow" aria-labelledby="cfg-fixas-titulo">
+          <div class="card-header"><h2 id="cfg-fixas-titulo">Contas fixas</h2></div>
+          <p class="muted">Gastos que se repetem todo mês com o mesmo valor, como faculdade, aluguel ou academia. O app lança cada um sozinho, no dia escolhido. Se o valor mudar, a mudança vale deste mês em diante.</p>
+          <div id="lista-contas-fixas" class="fixas-lista"></div>
+          <form id="form-conta-fixa" class="fixa-form" aria-labelledby="fixa-form-titulo">
+            <input type="hidden" id="fixa-id" />
+            <h3 class="fixa-form-titulo" id="fixa-form-titulo">Adicionar conta fixa</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="fixa-descricao">O que é?</label>
+                <input type="text" id="fixa-descricao" maxlength="200" placeholder="Ex.: Faculdade" required />
+              </div>
+              <div class="form-group">
+                <label for="fixa-valor">Valor por mês (R$)</label>
+                <input type="number" id="fixa-valor" min="0.01" step="0.01" inputmode="decimal" placeholder="0,00" required />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group fixa-dia">
+                <label for="fixa-dia">Dia de pagar</label>
+                <input type="number" id="fixa-dia" min="1" max="31" value="10" required />
+              </div>
+              <div class="form-group">
+                <label for="fixa-categoria">Categoria</label>
+                <select id="fixa-categoria"></select>
+              </div>
+              <div class="form-group">
+                <label for="fixa-forma">Como paga?</label>
+                <select id="fixa-forma">
+                  <option value="debito">Débito</option>
+                  <option value="pix">PIX</option>
+                  <option value="credito">Crédito</option>
+                </select>
+              </div>
+            </div>
+            <p class="ajuda" id="fixa-ajuda">Começa a ser lançada neste mês. Em meses com menos dias, cai no último dia do mês.</p>
+            <div class="fixa-form-acoes">
+              <button type="submit" class="btn btn-primary" id="fixa-salvar">Adicionar conta fixa</button>
+              <button type="button" class="btn btn-ghost hidden" id="fixa-cancelar">Cancelar edição</button>
+            </div>
+          </form>
+        </section>
+
         <section class="card narrow" aria-labelledby="cfg-cat-titulo">
           <div class="card-header"><h2 id="cfg-cat-titulo">Categorias de gasto</h2></div>
           <p class="muted">As categorias aparecem na hora de registrar um gasto.</p>
@@ -455,7 +530,7 @@
       </button>
       <button class="sheet-item" data-section="configuracoes">
         <i class="fa-solid fa-sliders" aria-hidden="true"></i>
-        <span><strong>Ajustes</strong><small>Salário, categorias e assistente de IA</small></span>
+        <span><strong>Ajustes</strong><small>Salário, contas fixas, categorias e assistente de IA</small></span>
       </button>
     </div>
   </div>
@@ -522,6 +597,11 @@
             <select id="tx-parcelas"></select>
           </div>
         </div>
+
+        <label class="checkbox-row opcao-fixa hidden" id="grupo-fixa">
+          <input type="checkbox" id="tx-fixa" />
+          <span><strong>Repetir todo mês</strong> <small>Conta fixa, como faculdade ou aluguel: o app lança este gasto sozinho nos próximos meses.</small></span>
+        </label>
 
         <p class="aviso hidden" id="tx-info">&nbsp;</p>
 

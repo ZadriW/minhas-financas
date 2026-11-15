@@ -141,6 +141,124 @@ describe("salário automático", () => {
   });
 });
 
+describe("contas fixas", () => {
+  const faculdade = () => ({
+    id: "fac1", descricao: "Faculdade", valor: 1200, dia: 31, categoria: "Educação",
+    formaPagamento: "pix", mesInicio: "2027-01", mesFim: null, mesesIgnorados: [],
+  });
+
+  test("lança uma vez por mês, no último dia quando o mês é curto, sem duplicar", () => {
+    const d = dadosCom({ config: { contasFixas: [faculdade()] } });
+    assert.equal(C.sincronizarContasFixas(d, "2027-03"), true);
+    assert.deepEqual(d.transacoes.map((t) => t.data), ["2027-01-31", "2027-02-28", "2027-03-31"]);
+    const t = d.transacoes[0];
+    assert.equal(t.tipo, "despesa");
+    assert.equal(t.categoria, "Educação");
+    assert.equal(t.formaPagamento, "pix");
+    assert.equal(t.contaFixaId, "fac1");
+    assert.equal(C.sincronizarContasFixas(d, "2027-03"), false);
+    assert.equal(d.transacoes.length, 3);
+  });
+
+  test("pula meses fechados, meses ignorados e meses após o fim", () => {
+    const conta = { ...faculdade(), mesesIgnorados: ["2027-02"], mesFim: "2027-04" };
+    const d = dadosCom({ config: { contasFixas: [conta], mesesFechados: ["2027-03"] } });
+    C.sincronizarContasFixas(d, "2027-06");
+    assert.deepEqual(d.transacoes.map((t) => C.mesDe(t.data)), ["2027-01", "2027-04"]);
+  });
+
+  test("não lança antes do mês de início", () => {
+    const d = dadosCom({ config: { contasFixas: [faculdade()] } });
+    assert.equal(C.sincronizarContasFixas(d, "2026-12"), false);
+    assert.equal(d.transacoes.length, 0);
+  });
+
+  test("mudança vale do mês atual em diante, só em meses abertos e não editados", () => {
+    const conta = faculdade();
+    const d = dadosCom({ config: { contasFixas: [conta] } });
+    C.sincronizarContasFixas(d, "2027-05");
+    d.config.mesesFechados = ["2027-03"];
+    d.transacoes.find((t) => C.mesDe(t.data) === "2027-04").contaFixaEditada = true;
+    Object.assign(conta, { valor: 1350, dia: 10, descricao: "Mensalidade" });
+    C.aplicarMudancaContaFixa(d, conta, "2027-02");
+    const porMes = Object.fromEntries(d.transacoes.map((t) => [C.mesDe(t.data), t]));
+    assert.equal(porMes["2027-01"].valor, 1200); // passado
+    assert.equal(porMes["2027-02"].valor, 1350);
+    assert.equal(porMes["2027-02"].data, "2027-02-10");
+    assert.equal(porMes["2027-02"].descricao, "Mensalidade");
+    assert.equal(porMes["2027-03"].valor, 1200); // fechado
+    assert.equal(porMes["2027-04"].valor, 1200); // editado à mão
+    assert.equal(porMes["2027-05"].valor, 1350);
+  });
+
+  test("encerrar remove lançamentos abertos a partir do mês e mantém os fechados", () => {
+    const d = dadosCom({ config: { contasFixas: [faculdade()] } });
+    C.sincronizarContasFixas(d, "2027-05");
+    d.config.mesesFechados = ["2027-04"];
+    assert.equal(C.encerrarContaFixa(d, "fac1", "2027-03"), 2); // março e maio
+    assert.deepEqual(d.transacoes.map((t) => C.mesDe(t.data)), ["2027-01", "2027-02", "2027-04"]);
+    assert.equal(d.config.contasFixas[0].mesFim, "2027-02");
+    C.sincronizarContasFixas(d, "2027-08");
+    assert.equal(d.transacoes.length, 3);
+    assert.equal(C.contasFixasAtivas(d.config, "2027-02").length, 0);
+    assert.equal(C.contasFixasAtivas(d.config, "2027-01").length, 1);
+  });
+
+  test("encerrar antes de começar tira a conta da lista e solta os lançamentos restantes", () => {
+    const d = dadosCom({ config: { contasFixas: [faculdade()] } });
+    C.sincronizarContasFixas(d, "2027-02");
+    d.config.mesesFechados = ["2027-02"];
+    C.encerrarContaFixa(d, "fac1", "2027-01");
+    assert.equal(d.config.contasFixas.length, 0);
+    assert.equal(d.transacoes.length, 1);
+    assert.equal(d.transacoes[0].contaFixaId, undefined);
+  });
+
+  test("resumo do mês separa o que já foi pago do que ainda vence", () => {
+    const txs = [
+      { tipo: "despesa", descricao: "Academia", valor: 99.9, data: "2026-11-30", contaFixaId: "a" },
+      { tipo: "despesa", descricao: "Aluguel", valor: 1800, data: "2026-11-05", contaFixaId: "b" },
+      { tipo: "despesa", descricao: "Faculdade", valor: 1250, data: "2026-11-15", contaFixaId: "c" },
+      { tipo: "despesa", descricao: "Mercado", valor: 300, data: "2026-11-02" },
+      { tipo: "despesa", descricao: "Aluguel", valor: 1800, data: "2026-12-05", contaFixaId: "b" },
+    ];
+    const r = C.resumoContasFixas(txs, "2026-11", "2026-11-15");
+    assert.deepEqual(r.itens.map((t) => t.descricao), ["Aluguel", "Faculdade", "Academia"]);
+    assert.equal(r.total, 3149.9);
+    assert.equal(r.pago, 3050); // o que vence hoje conta como pago
+    assert.equal(r.aPagar, 99.9);
+    assert.equal(r.proxima.descricao, "Academia");
+    const vazio = C.resumoContasFixas(txs, "2027-01", "2026-11-15");
+    assert.equal(vazio.total, 0);
+    assert.equal(vazio.proxima, null);
+  });
+
+  test("sanitização valida contas e preserva o vínculo dos lançamentos", () => {
+    const { dados } = C.sanitizarDados({
+      transacoes: [
+        { id: "t1", tipo: "despesa", descricao: "Faculdade", valor: 1200, data: "2027-01-31", contaFixaId: "fac1", contaFixaEditada: true },
+        { id: "t2", tipo: "despesa", descricao: "X", valor: 1, data: "2027-01-01", contaFixaId: "<script>" },
+      ],
+      config: {
+        contasFixas: [
+          { ...faculdade(), dia: 45, formaPagamento: "boleto" },
+          { ...faculdade() }, // id repetido
+          { ...faculdade(), id: "b2", valor: -5 },
+          { ...faculdade(), id: "b3", mesFim: "2026-01" }, // fim antes do início
+          { ...faculdade(), id: "b4", mesInicio: "2027-13" },
+        ],
+      },
+    });
+    assert.equal(dados.config.contasFixas.length, 1);
+    assert.equal(dados.config.contasFixas[0].dia, 31);
+    assert.equal(dados.config.contasFixas[0].formaPagamento, "debito");
+    assert.equal(dados.transacoes[0].contaFixaId, "fac1");
+    assert.equal(dados.transacoes[0].contaFixaEditada, true);
+    assert.equal(dados.transacoes[1].contaFixaId, undefined);
+    assert.deepEqual(C.sanitizarDados({ transacoes: [], config: {} }).dados.config.contasFixas, []);
+  });
+});
+
 describe("gerarParcelas", () => {
   test("divide o valor e a última parcela absorve o arredondamento", () => {
     const ps = C.gerarParcelas({ tipo: "despesa", descricao: "TV", valor: 100, data: "2026-01-31" }, 3);
